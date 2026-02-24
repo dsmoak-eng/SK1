@@ -1,0 +1,1521 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>DART Filing Alerts</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;0,9..40,700;1,9..40,400&family=JetBrains+Mono:wght@400;500&family=Noto+Sans+KR:wght@400;500;700&display=swap" rel="stylesheet">
+<style>
+:root {
+  --bg-root: #06080C;
+  --bg-surface: #0D1017;
+  --bg-raised: #12151C;
+  --bg-hover: #171B24;
+  --border: #1C2030;
+  --border-accent: rgba(212,175,90,0.15);
+  --gold: #D4AF5A;
+  --gold-bright: #E8C872;
+  --gold-dim: #A8883E;
+  --text-primary: #ECEDEE;
+  --text-secondary: #9BA1AD;
+  --text-muted: #5A6070;
+  --blue: #5B9AFF;
+  --red: #FF6B6B;
+  --amber: #FFAB40;
+  --violet: #A78BFA;
+  --green: #4ADE80;
+  --cyan: #22D3EE;
+  --pink: #F472B6;
+  --orange: #FB923C;
+  --mono: 'JetBrains Mono', 'Courier New', monospace;
+  --sans: 'DM Sans', 'Noto Sans KR', -apple-system, sans-serif;
+}
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+body { font-family: var(--sans); background: var(--bg-root); color: var(--text-primary); min-height: 100vh; overflow-x: hidden; }
+::-webkit-scrollbar { width: 5px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: #2A2E38; border-radius: 3px; }
+
+@keyframes spin { to { transform: rotate(360deg); } }
+@keyframes fadeUp { from { opacity: 0; transform: translateY(12px); } to { opacity: 1; transform: translateY(0); } }
+@keyframes slideRight { from { opacity: 0; transform: translateX(16px); } to { opacity: 1; transform: translateX(0); } }
+@keyframes pulse { 0%,100% { opacity: 1; } 50% { opacity: .4; } }
+@keyframes shimmer { 0% { background-position: -400px 0; } 100% { background-position: 400px 0; } }
+@keyframes glow { 0%,100% { box-shadow: 0 0 20px rgba(212,175,90,0.08); } 50% { box-shadow: 0 0 40px rgba(212,175,90,0.15); } }
+@keyframes loginReveal { from { opacity:0; transform: scale(.96) translateY(20px); } to { opacity:1; transform: scale(1) translateY(0); } }
+
+/* ─── LOGIN ─── */
+#login-screen {
+  position: fixed; inset: 0; z-index: 9999;
+  display: flex; align-items: center; justify-content: center;
+  background: var(--bg-root);
+  background-image:
+    radial-gradient(ellipse 600px 400px at 30% 20%, rgba(212,175,90,0.04) 0%, transparent 70%),
+    radial-gradient(ellipse 500px 500px at 70% 80%, rgba(91,154,255,0.03) 0%, transparent 70%);
+}
+#login-screen.hidden { display: none; }
+.login-box {
+  width: 380px; padding: 48px 40px;
+  background: var(--bg-surface);
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  animation: loginReveal .5s cubic-bezier(.16,1,.3,1);
+}
+.login-logo {
+  width: 48px; height: 48px; border-radius: 12px;
+  background: linear-gradient(135deg, var(--gold) 0%, var(--gold-dim) 100%);
+  display: flex; align-items: center; justify-content: center;
+  font-size: 24px; font-weight: 800; color: var(--bg-root);
+  margin: 0 auto 24px;
+  animation: glow 3s infinite;
+}
+.login-title { text-align: center; font-size: 20px; font-weight: 700; letter-spacing: -.3px; margin-bottom: 6px; }
+.login-sub { text-align: center; font-size: 12px; color: var(--text-muted); margin-bottom: 32px; font-family: var(--mono); }
+.login-label { display: block; font-size: 10px; font-weight: 600; color: var(--text-muted); text-transform: uppercase; letter-spacing: 1px; margin-bottom: 8px; }
+.login-input {
+  width: 100%; padding: 12px 16px; border-radius: 8px;
+  border: 1px solid var(--border); background: var(--bg-raised);
+  color: var(--text-primary); font-size: 14px; font-family: var(--mono);
+  outline: none; transition: border-color .2s;
+}
+.login-input:focus { border-color: var(--gold-dim); }
+.login-input::placeholder { color: #3A3F4C; }
+.login-btn {
+  width: 100%; padding: 13px; border: none; border-radius: 8px;
+  background: linear-gradient(135deg, var(--gold) 0%, var(--gold-dim) 100%);
+  color: var(--bg-root); font-size: 14px; font-weight: 700; font-family: var(--sans);
+  cursor: pointer; margin-top: 24px; letter-spacing: .3px;
+  transition: transform .1s, box-shadow .2s;
+}
+.login-btn:hover { transform: translateY(-1px); box-shadow: 0 4px 20px rgba(212,175,90,0.25); }
+.login-btn:active { transform: translateY(0); }
+.login-error { color: var(--red); font-size: 12px; text-align: center; margin-top: 14px; min-height: 18px; }
+.login-hint { color: var(--text-muted); font-size: 10px; text-align: center; margin-top: 20px; font-family: var(--mono); }
+
+/* ─── DASHBOARD ─── */
+#app { display: none; }
+#app.visible { display: block; }
+
+.header {
+  position: sticky; top: 0; z-index: 100;
+  border-bottom: 1px solid var(--border);
+  background: linear-gradient(180deg, rgba(13,16,23,.97) 0%, rgba(6,8,12,.97) 100%);
+  backdrop-filter: blur(12px);
+  padding: 18px 32px;
+}
+.header-inner { display: flex; align-items: center; justify-content: space-between; max-width: 1440px; margin: 0 auto; }
+.header-brand { display: flex; align-items: center; gap: 14px; }
+.header-icon {
+  width: 34px; height: 34px; border-radius: 8px;
+  background: linear-gradient(135deg, var(--gold) 0%, var(--gold-dim) 100%);
+  display: flex; align-items: center; justify-content: center;
+  font-size: 17px; font-weight: 800; color: var(--bg-root);
+}
+.header-title { font-size: 17px; font-weight: 700; letter-spacing: -.3px; }
+.header-subtitle { font-size: 10px; color: var(--text-muted); font-family: var(--mono); }
+.header-actions { display: flex; align-items: center; gap: 12px; }
+.status-dot { width: 6px; height: 6px; border-radius: 50%; animation: pulse 2s infinite; }
+.status-text { font-size: 11px; color: var(--text-muted); font-family: var(--mono); }
+.btn-sm {
+  padding: 6px 14px; border-radius: 6px;
+  border: 1px solid var(--border); background: var(--bg-raised);
+  color: var(--text-secondary); font-size: 12px; font-weight: 500;
+  cursor: pointer; font-family: var(--sans); transition: all .15s;
+}
+.btn-sm:hover { background: var(--bg-hover); color: var(--gold-bright); border-color: var(--border-accent); }
+
+.main { max-width: 1440px; margin: 0 auto; padding: 24px 32px; }
+
+/* Stats */
+.stats-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 14px; margin-bottom: 24px; }
+.stat-card {
+  background: var(--bg-surface); border: 1px solid var(--border); border-radius: 10px;
+  padding: 16px 20px;
+}
+.stat-label { font-size: 10px; font-weight: 600; color: var(--text-muted); text-transform: uppercase; letter-spacing: 1px; margin-bottom: 6px; }
+.stat-value { font-size: 28px; font-weight: 700; font-family: var(--mono); letter-spacing: -1px; }
+
+/* Controls */
+.controls { display: flex; gap: 12px; margin-bottom: 20px; flex-wrap: wrap; align-items: center; }
+.search-wrap { position: relative; flex: 1 1 280px; }
+.search-icon { position: absolute; left: 12px; top: 50%; transform: translateY(-50%); color: var(--text-muted); font-size: 14px; pointer-events: none; }
+.search-input {
+  width: 100%; padding: 10px 12px 10px 34px; border-radius: 8px;
+  border: 1px solid var(--border); background: var(--bg-surface);
+  color: var(--text-primary); font-size: 13px; font-family: var(--sans); outline: none;
+  transition: border-color .2s;
+}
+.search-input:focus { border-color: var(--gold-dim); }
+.search-input::placeholder { color: #3A3F4C; }
+.select-input {
+  padding: 10px 14px; border-radius: 8px;
+  border: 1px solid var(--border); background: var(--bg-surface);
+  color: var(--text-primary); font-size: 13px; font-family: var(--sans);
+  outline: none; cursor: pointer;
+}
+.select-input:focus { border-color: var(--gold-dim); }
+
+/* Layout */
+.content-grid { display: flex; gap: 20px; }
+.filing-list { flex: 1; min-width: 0; }
+.sidebar { width: 360px; flex-shrink: 0; position: sticky; top: 80px; align-self: flex-start; }
+
+/* Filing items */
+.filing-item {
+  display: flex; align-items: flex-start; gap: 14px;
+  padding: 14px 18px; border-radius: 8px;
+  border: 1px solid transparent; cursor: pointer;
+  transition: all .15s;
+}
+.filing-item:hover { background: var(--bg-surface); }
+.filing-item.selected { background: var(--bg-raised); border-color: var(--border-accent); }
+.filing-date { min-width: 72px; font-family: var(--mono); font-size: 11px; color: var(--text-muted); padding-top: 2px; }
+.filing-content { flex: 1; min-width: 0; }
+.filing-header { display: flex; align-items: center; gap: 8px; margin-bottom: 4px; flex-wrap: wrap; }
+.filing-company { font-size: 13px; font-weight: 600; color: var(--gold-bright); }
+.filing-symbol { font-size: 10px; color: var(--text-muted); font-family: var(--mono); }
+.filing-title { font-size: 13px; color: var(--text-secondary); line-height: 1.4; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.filing-arrow { color: #2A2E38; font-size: 16px; padding-top: 4px; }
+.filing-count { text-align: center; padding: 16px; color: var(--text-muted); font-size: 11px; font-family: var(--mono); }
+
+/* Badge */
+.badge {
+  display: inline-block; padding: 2px 8px; border-radius: 4px;
+  font-size: 10px; font-weight: 700; letter-spacing: .5px;
+  text-transform: uppercase; color: #fff;
+}
+
+/* Detail panel */
+.detail-panel {
+  background: var(--bg-surface); border: 1px solid var(--border); border-radius: 12px;
+  padding: 24px;
+}
+.detail-panel.animated { animation: slideRight .25s ease; }
+.detail-section-label { font-size: 10px; font-weight: 600; color: var(--text-muted); text-transform: uppercase; letter-spacing: 1px; }
+.detail-company { font-size: 18px; font-weight: 700; color: var(--gold-bright); margin-bottom: 4px; }
+.detail-symbol { font-size: 11px; color: var(--text-muted); font-family: var(--mono); margin-bottom: 20px; }
+.detail-title { font-size: 14px; color: #D4D4D8; line-height: 1.6; margin-bottom: 20px; word-break: break-word; }
+.detail-row {
+  display: flex; justify-content: space-between; align-items: center;
+  padding: 10px 0; border-top: 1px solid var(--border);
+}
+.detail-row-label { font-size: 11px; color: var(--text-muted); text-transform: uppercase; letter-spacing: .5px; }
+.detail-row-value { font-size: 12px; color: var(--text-secondary); font-family: var(--mono); text-align: right; }
+.btn-dart {
+  display: block; width: 100%; margin-top: 20px; padding: 11px 0; border: none; border-radius: 8px;
+  background: linear-gradient(135deg, var(--gold) 0%, var(--gold-dim) 100%);
+  color: var(--bg-root); font-size: 13px; font-weight: 700; font-family: var(--sans);
+  text-align: center; text-decoration: none; letter-spacing: .3px; cursor: pointer;
+  transition: transform .1s, box-shadow .2s;
+}
+.btn-dart:hover { transform: translateY(-1px); box-shadow: 0 4px 20px rgba(212,175,90,0.25); }
+.empty-detail { text-align: center; padding: 32px; }
+.empty-detail-icon { font-size: 32px; margin-bottom: 12px; opacity: .3; }
+.empty-detail-text { font-size: 13px; color: var(--text-muted); }
+
+/* Watchlist */
+.watchlist-panel {
+  background: var(--bg-surface); border: 1px solid var(--border); border-radius: 12px;
+  padding: 20px; margin-top: 14px;
+}
+.watchlist-scroll { max-height: 280px; overflow-y: auto; }
+.watchlist-item {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 7px 10px; border-radius: 6px; cursor: pointer;
+  font-size: 12px; transition: background .15s;
+}
+.watchlist-item:hover { background: var(--bg-hover); }
+.watchlist-name { color: var(--text-secondary); }
+.watchlist-meta { display: flex; align-items: center; gap: 8px; }
+.watchlist-code { font-family: var(--mono); font-size: 10px; color: var(--text-muted); }
+.watchlist-count {
+  background: rgba(212,175,90,0.12); color: var(--gold-bright);
+  font-size: 10px; font-weight: 700; padding: 1px 6px; border-radius: 4px;
+  font-family: var(--mono);
+}
+
+/* Watchlist Editor Modal */
+.modal-overlay {
+  position: fixed; inset: 0; z-index: 9000;
+  background: rgba(0,0,0,0.65); backdrop-filter: blur(6px);
+  display: flex; align-items: center; justify-content: center;
+  animation: fadeUp .2s ease;
+}
+.modal-overlay.hidden { display: none; }
+.modal {
+  width: 520px; max-height: 80vh; background: var(--bg-surface);
+  border: 1px solid var(--border); border-radius: 14px;
+  display: flex; flex-direction: column; overflow: hidden;
+  animation: loginReveal .3s cubic-bezier(.16,1,.3,1);
+}
+.modal-header {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 20px 24px; border-bottom: 1px solid var(--border);
+}
+.modal-title { font-size: 15px; font-weight: 700; }
+.modal-close { background: none; border: none; color: var(--text-muted); font-size: 20px; cursor: pointer; line-height: 1; padding: 4px; }
+.modal-close:hover { color: var(--text-primary); }
+.modal-body { padding: 20px 24px; overflow-y: auto; flex: 1; }
+.modal-footer { padding: 16px 24px; border-top: 1px solid var(--border); display: flex; justify-content: space-between; align-items: center; gap: 10px; }
+
+/* Add form */
+.add-row { display: flex; gap: 8px; margin-bottom: 20px; }
+.add-input {
+  flex: 1; padding: 9px 12px; border-radius: 7px;
+  border: 1px solid var(--border); background: var(--bg-raised);
+  color: var(--text-primary); font-size: 13px; font-family: var(--sans); outline: none;
+  transition: border-color .2s;
+}
+.add-input:focus { border-color: var(--gold-dim); }
+.add-input::placeholder { color: #3A3F4C; }
+.add-input.mono { font-family: var(--mono); max-width: 120px; }
+.btn-add {
+  padding: 9px 16px; border: none; border-radius: 7px;
+  background: var(--gold); color: var(--bg-root); font-size: 12px;
+  font-weight: 700; font-family: var(--sans); cursor: pointer;
+  white-space: nowrap; transition: transform .1s;
+}
+.btn-add:hover { transform: translateY(-1px); }
+.btn-add:disabled { opacity: .4; cursor: default; transform: none; }
+
+/* Editable watchlist items */
+.wl-edit-item {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 10px 12px; border-radius: 7px;
+  border: 1px solid var(--border); margin-bottom: 6px;
+  transition: all .15s;
+}
+.wl-edit-item:hover { border-color: var(--border-accent); background: var(--bg-raised); }
+.wl-edit-info { display: flex; align-items: center; gap: 10px; }
+.wl-edit-name { font-size: 13px; color: var(--text-primary); font-weight: 500; }
+.wl-edit-sym { font-size: 11px; color: var(--text-muted); font-family: var(--mono); }
+.btn-remove {
+  background: none; border: 1px solid transparent; border-radius: 5px;
+  color: var(--text-muted); font-size: 16px; cursor: pointer;
+  padding: 2px 6px; line-height: 1; transition: all .15s;
+}
+.btn-remove:hover { color: var(--red); border-color: rgba(255,107,107,0.25); background: rgba(255,107,107,0.08); }
+
+.add-error { color: var(--red); font-size: 11px; margin-bottom: 12px; min-height: 16px; }
+.btn-reset {
+  padding: 8px 14px; border: 1px solid var(--border); border-radius: 7px;
+  background: var(--bg-raised); color: var(--text-muted); font-size: 11px;
+  font-family: var(--sans); cursor: pointer; transition: all .15s;
+}
+.btn-reset:hover { color: var(--amber); border-color: rgba(255,171,64,0.3); }
+.modal-count { font-size: 11px; color: var(--text-muted); font-family: var(--mono); }
+
+/* Edit button in watchlist panel header */
+.wl-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 14px; }
+.btn-edit-wl {
+  padding: 4px 10px; border: 1px solid var(--border); border-radius: 5px;
+  background: transparent; color: var(--text-muted); font-size: 11px;
+  font-family: var(--sans); cursor: pointer; transition: all .15s;
+}
+.btn-edit-wl:hover { color: var(--gold-bright); border-color: var(--border-accent); }
+
+/* Navigation Tabs */
+.nav-tabs {
+  display: flex; gap: 2px; padding: 0 32px;
+  max-width: 1440px; margin: 0 auto;
+  border-bottom: 1px solid var(--border);
+  background: var(--bg-root);
+}
+.nav-tab {
+  padding: 12px 20px; font-size: 13px; font-weight: 500;
+  color: var(--text-muted); cursor: pointer;
+  border: none; background: none; font-family: var(--sans);
+  border-bottom: 2px solid transparent;
+  transition: all .15s; position: relative; bottom: -1px;
+}
+.nav-tab:hover { color: var(--text-secondary); }
+.nav-tab.active { color: var(--gold-bright); border-bottom-color: var(--gold); }
+.nav-tab .tab-count {
+  display: inline-block; margin-left: 6px;
+  background: rgba(212,175,90,0.12); color: var(--gold-bright);
+  font-size: 10px; font-weight: 700; padding: 1px 6px; border-radius: 4px;
+  font-family: var(--mono);
+}
+.nav-tab.active .tab-count { background: rgba(212,175,90,0.2); }
+
+/* Action category badges for shareholder actions page */
+.action-badge {
+  display: inline-block; padding: 2px 8px; border-radius: 4px;
+  font-size: 10px; font-weight: 700; letter-spacing: .5px;
+  text-transform: uppercase; color: #fff;
+}
+.action-badge.buyback { background: var(--blue); }
+.action-badge.dividend { background: var(--green); }
+.action-badge.tender { background: var(--orange); }
+.action-badge.unknown { background: #6B7280; }
+
+/* Page sections */
+.page-section { display: none; }
+.page-section.active { display: block; }
+
+/* Spinner */
+.spinner-wrap { display: flex; justify-content: center; padding: 40px; }
+.spinner {
+  width: 32px; height: 32px;
+  border: 3px solid rgba(255,255,255,0.06);
+  border-top: 3px solid var(--gold);
+  border-radius: 50%; animation: spin .8s linear infinite;
+}
+
+/* Responsive */
+@media (max-width: 900px) {
+  .stats-grid { grid-template-columns: repeat(2, 1fr); }
+  .content-grid { flex-direction: column; }
+  .sidebar { width: 100%; position: static; }
+  .header { padding: 14px 16px; }
+  .main { padding: 16px; }
+}
+@media (max-width: 500px) {
+  .stats-grid { grid-template-columns: 1fr 1fr; gap: 8px; }
+  .stat-value { font-size: 22px; }
+}
+</style>
+</head>
+<body>
+
+<!-- ═══════════════════ LOGIN SCREEN ═══════════════════ -->
+<div id="login-screen">
+  <div class="login-box">
+    <div class="login-logo">D</div>
+    <div class="login-title">DART Filing Alerts</div>
+    <div class="login-sub">Korea FSS Electronic Disclosure</div>
+    <label class="login-label">Password</label>
+    <input type="password" id="login-pw" class="login-input" placeholder="Enter access password" autofocus>
+    <button id="login-btn" class="login-btn">Authenticate →</button>
+    <div id="login-error" class="login-error"></div>
+    <div class="login-hint">Contact your administrator for access</div>
+  </div>
+</div>
+
+<!-- ═══════════════════ DASHBOARD ═══════════════════ -->
+<div id="app">
+  <!-- Header -->
+  <div class="header">
+    <div class="header-inner">
+      <div class="header-brand">
+        <div class="header-icon">D</div>
+        <div>
+          <div class="header-title">DART Filing Alerts</div>
+          <div class="header-subtitle">Korea FSS Electronic Disclosure</div>
+        </div>
+      </div>
+      <div class="header-actions">
+        <div style="display:flex;align-items:center;gap:6px">
+          <div id="status-dot" class="status-dot" style="background:var(--amber)"></div>
+          <span id="status-text" class="status-text">DEMO</span>
+        </div>
+        <span id="last-refresh" class="status-text" style="color:var(--text-muted)"></span>
+        <button id="refresh-btn" class="btn-sm">↻ Refresh</button>
+        <button id="logout-btn" class="btn-sm" style="color:var(--red)">Logout</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Navigation Tabs -->
+  <div class="nav-tabs">
+    <button class="nav-tab active" data-page="filings">All Filings <span id="tab-count-filings" class="tab-count">0</span></button>
+    <button class="nav-tab" data-page="actions">Shareholder Actions <span id="tab-count-actions" class="tab-count">0</span></button>
+  </div>
+
+  <!-- PAGE 1: All Filings -->
+  <div id="page-filings" class="page-section active">
+  <div class="main">
+    <!-- Stats -->
+    <div class="stats-grid">
+      <div class="stat-card"><div class="stat-label">Total Filings</div><div id="stat-total" class="stat-value" style="color:var(--gold)">0</div></div>
+      <div class="stat-card"><div class="stat-label">Active Companies</div><div id="stat-companies" class="stat-value" style="color:var(--blue)">0</div></div>
+      <div class="stat-card"><div class="stat-label">Watchlist Size</div><div id="stat-watchlist" class="stat-value" style="color:var(--violet)">30</div></div>
+      <div class="stat-card"><div class="stat-label">Date Range</div><div id="stat-range" class="stat-value" style="color:var(--green)">30d</div></div>
+    </div>
+
+    <!-- Controls -->
+    <div class="controls">
+      <div class="search-wrap">
+        <span class="search-icon">⌕</span>
+        <input type="text" id="search-input" class="search-input" placeholder="Search company or filing...">
+      </div>
+      <select id="type-filter" class="select-input">
+        <option value="ALL">All Types</option>
+        <option value="A">Annual/Periodic</option>
+        <option value="B">Major Events</option>
+        <option value="C">Issuance</option>
+        <option value="D">Equity</option>
+        <option value="E">Other</option>
+        <option value="F">Foreign</option>
+        <option value="G">Funds</option>
+        <option value="H">Acquisition</option>
+        <option value="I">Registration</option>
+      </select>
+      <select id="date-range" class="select-input">
+        <option value="7">Past 7 days</option>
+        <option value="14">Past 14 days</option>
+        <option value="30" selected>Past 30 days</option>
+        <option value="90">Past 90 days</option>
+      </select>
+    </div>
+
+    <!-- Content -->
+    <div class="content-grid">
+      <div class="filing-list" id="filing-list"></div>
+      <div class="sidebar">
+        <div id="detail-panel"></div>
+        <div class="watchlist-panel">
+          <div class="wl-header">
+            <div class="detail-section-label">Watchlist (<span id="wl-count">30</span>)</div>
+            <button id="edit-wl-btn" class="btn-edit-wl">✎ Edit</button>
+          </div>
+          <div class="watchlist-scroll" id="watchlist-container"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+  </div><!-- end page-filings -->
+
+  <!-- PAGE 2: Shareholder Actions -->
+  <div id="page-actions" class="page-section">
+  <div class="main">
+    <!-- Stats for actions -->
+    <div class="stats-grid">
+      <div class="stat-card"><div class="stat-label">Total Actions</div><div id="sa-stat-total" class="stat-value" style="color:var(--gold)">0</div></div>
+      <div class="stat-card"><div class="stat-label">Buybacks / Repurchases</div><div id="sa-stat-buybacks" class="stat-value" style="color:var(--blue)">0</div></div>
+      <div class="stat-card"><div class="stat-label">Tender Offers</div><div id="sa-stat-tenders" class="stat-value" style="color:var(--orange)">0</div></div>
+      <div class="stat-card"><div class="stat-label">Dividends</div><div id="sa-stat-dividends" class="stat-value" style="color:var(--green)">0</div></div>
+    </div>
+
+    <!-- Controls -->
+    <div class="controls">
+      <div class="search-wrap">
+        <span class="search-icon">⌕</span>
+        <input type="text" id="sa-search-input" class="search-input" placeholder="Search company or action...">
+      </div>
+      <select id="sa-scope-filter" class="select-input">
+        <option value="all">All Companies (Market-Wide)</option>
+        <option value="watchlist">Watchlist Only</option>
+      </select>
+      <select id="sa-action-filter" class="select-input">
+        <option value="ALL">All Actions</option>
+        <option value="buyback">Buybacks</option>
+        <option value="tender">Tender Offers</option>
+        <option value="dividend">Dividends</option>
+      </select>
+      <select id="sa-date-range" class="select-input">
+        <option value="30" selected>Past 30 days</option>
+        <option value="60">Past 60 days</option>
+      </select>
+    </div>
+
+    <!-- API note -->
+    <div id="sa-api-note" style="font-size:11px;color:var(--text-muted);font-family:var(--mono);margin-bottom:16px;display:none">
+      ⚡ Market-wide scan: ~3 API calls per refresh · only buybacks, repurchases, tender offers &amp; dividends shown
+    </div>
+
+    <!-- Content -->
+    <div class="content-grid">
+      <div class="filing-list" id="sa-filing-list"></div>
+      <div class="sidebar">
+        <div id="sa-detail-panel"></div>
+        <!-- Legend -->
+        <div class="watchlist-panel">
+          <div class="detail-section-label" style="margin-bottom:14px">Action Categories</div>
+          <div style="display:flex;flex-direction:column;gap:10px;padding:4px 0">
+            <div style="display:flex;align-items:center;gap:10px"><span class="action-badge buyback">BUYBACK</span><span style="font-size:12px;color:var(--text-secondary)">Stock repurchase / treasury shares</span></div>
+            <div style="display:flex;align-items:center;gap:10px"><span class="action-badge tender">TENDER</span><span style="font-size:12px;color:var(--text-secondary)">Tender offers / public purchase</span></div>
+            <div style="display:flex;align-items:center;gap:10px"><span class="action-badge dividend">DIVIDEND</span><span style="font-size:12px;color:var(--text-secondary)">Cash or stock dividend decisions</span></div>
+          </div>
+          <div style="margin-top:16px;padding-top:14px;border-top:1px solid var(--border)">
+            <div class="detail-section-label" style="margin-bottom:8px">API Usage</div>
+            <div style="font-size:11px;color:var(--text-muted);line-height:1.6">
+              Market-wide scan fetches ~3 pages of recent filings and filters for shareholder actions. Costs ~3 API calls per refresh. Daily limit: 10,000 calls.
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+  </div><!-- end page-actions -->
+
+  <!-- Watchlist Editor Modal -->
+  <div id="wl-modal" class="modal-overlay hidden">
+    <div class="modal">
+      <div class="modal-header">
+        <div class="modal-title">Edit Watchlist</div>
+        <button id="wl-modal-close" class="modal-close">×</button>
+      </div>
+      <div class="modal-body">
+        <div class="add-row">
+          <input type="text" id="add-name" class="add-input" placeholder="Company name">
+          <input type="text" id="add-symbol" class="add-input mono" placeholder="Symbol" maxlength="6">
+          <button id="add-btn" class="btn-add">+ Add</button>
+        </div>
+        <div id="add-error" class="add-error"></div>
+        <div id="wl-edit-list"></div>
+      </div>
+      <div class="modal-footer">
+        <button id="reset-wl-btn" class="btn-reset">↺ Reset to Default</button>
+        <span id="wl-edit-count" class="modal-count"></span>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+// ═══════════════════════════════════════════════════════════════
+// CONFIGURATION — EDIT THESE VALUES
+// ═══════════════════════════════════════════════════════════════
+
+// Password: Change this to your desired password.
+// For extra security you can hash it — see note below.
+const ACCESS_PASSWORD = "DartHSS26**";
+
+// DART API — routed through Netlify Function proxy (solves CORS)
+// The API key is stored server-side in netlify/functions/dart-proxy.js
+const DART_PROXY = "/.netlify/functions/dart-proxy";
+
+// Helper: call DART API via proxy
+async function dartFetch(params) {
+  const qs = new URLSearchParams(params).toString();
+  const r = await fetch(`${DART_PROXY}?${qs}`);
+  if (!r.ok) throw new Error("Proxy returned " + r.status);
+  return r.json();
+}
+
+// Default watchlist from your spreadsheet
+const DEFAULT_WATCHLIST = [
+  { name: "KL-Net", symbol: "039420" },
+  { name: "Kukbo Design", symbol: "066620" },
+  { name: "WinsTechnet", symbol: "136540" },
+  { name: "Dong A E&P", symbol: "088130" },
+  { name: "Samyung Trading", symbol: "002810" },
+  { name: "SamyangTongsang", symbol: "002170" },
+  { name: "esang Networks", symbol: "080010" },
+  { name: "Muhak", symbol: "033920" },
+  { name: "Tovis", symbol: "051360" },
+  { name: "Plantynet", symbol: "075130" },
+  { name: "Korea Alcohol Industrial", symbol: "017890" },
+  { name: "Inbody", symbol: "041830" },
+  { name: "Total Soft Bank", symbol: "045340" },
+  { name: "MCNEX", symbol: "097520" },
+  { name: "Nice Info & Telecom", symbol: "036800" },
+  { name: "Boditech Med", symbol: "206640" },
+  { name: "Komelon", symbol: "049430" },
+  { name: "Golfzon", symbol: "215000" },
+  { name: "INFINITT Healthcare", symbol: "071200" },
+  { name: "Flitto", symbol: "300080" },
+  { name: "Eusu", symbol: "000700" },
+  { name: "i-components", symbol: "059100" },
+  { name: "Makus", symbol: "093520" },
+  { name: "BBC Co", symbol: "318410" },
+  { name: "T&L", symbol: "340570" },
+  { name: "Infovine", symbol: "115310" },
+  { name: "Gaeasoft", symbol: "051160" },
+  { name: "Dreamus", symbol: "060570" },
+  { name: "Bit Computer", symbol: "032850" },
+  { name: "Dongyang E&P", symbol: "079960" },
+];
+
+// Persistent watchlist — loads from localStorage or falls back to default
+const WL_STORAGE_KEY = "dart_watchlist";
+
+function loadWatchlist() {
+  try {
+    const stored = localStorage.getItem(WL_STORAGE_KEY);
+    if (stored) {
+      const parsed = JSON.parse(stored);
+      if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+    }
+  } catch (e) {}
+  return DEFAULT_WATCHLIST.map(s => ({...s}));
+}
+
+function saveWatchlist() {
+  localStorage.setItem(WL_STORAGE_KEY, JSON.stringify(WATCHLIST));
+}
+
+let WATCHLIST = loadWatchlist();
+
+const FILING_TYPES = {
+  A: { label: "Annual/Periodic", color: "#5B9AFF" },
+  B: { label: "Major Events", color: "#FF6B6B" },
+  C: { label: "Issuance", color: "#FFAB40" },
+  D: { label: "Equity", color: "#A78BFA" },
+  E: { label: "Other", color: "#6B7280" },
+  F: { label: "Foreign", color: "#4ADE80" },
+  G: { label: "Funds", color: "#F472B6" },
+  H: { label: "Acquisition", color: "#FB923C" },
+  I: { label: "Registration", color: "#22D3EE" },
+  J: { label: "Other", color: "#84CC16" },
+};
+
+// ═══════════════════════════════════════════════════════════════
+// AUTH
+// ═══════════════════════════════════════════════════════════════
+const SESSION_KEY = "dart_auth_session";
+
+function checkSession() {
+  const s = sessionStorage.getItem(SESSION_KEY);
+  return s === "authenticated";
+}
+
+function authenticate(pw) {
+  if (pw === ACCESS_PASSWORD) {
+    sessionStorage.setItem(SESSION_KEY, "authenticated");
+    return true;
+  }
+  return false;
+}
+
+function logout() {
+  sessionStorage.removeItem(SESSION_KEY);
+  location.reload();
+}
+
+// ═══════════════════════════════════════════════════════════════
+// UTILS
+// ═══════════════════════════════════════════════════════════════
+const pad = (s, n=6) => String(s).padStart(n, "0");
+const formatDate = (d) => d ? `${d.slice(0,4)}-${d.slice(4,6)}-${d.slice(6,8)}` : "";
+const getToday = () => new Date().toISOString().slice(0,10).replace(/-/g,"");
+const getDaysAgo = (n) => { const d = new Date(); d.setDate(d.getDate()-n); return d.toISOString().slice(0,10).replace(/-/g,""); };
+
+function makeBadge(type) {
+  const ft = FILING_TYPES[type] || FILING_TYPES["E"];
+  return `<span class="badge" style="background:${ft.color}">${ft.label}</span>`;
+}
+
+// ═══════════════════════════════════════════════════════════════
+// STATE
+// ═══════════════════════════════════════════════════════════════
+let allFilings = [];
+let selectedFiling = null;
+let searchTerm = "";
+let typeFilter = "ALL";
+let dateRange = 30;
+let isLive = false;
+
+// ═══════════════════════════════════════════════════════════════
+// DEMO DATA
+// ═══════════════════════════════════════════════════════════════
+function generateDemoData() {
+  const titles = [
+    "Annual Report (2025)", "Quarterly Report (Q3 2025)", "Share Ownership Change",
+    "Board Resolution - Dividend", "Material Fact Disclosure", "Semi-Annual Report (2025)",
+    "Tender Offer Report", "Stock Buyback Announcement", "Audit Committee Report",
+    "Executive Compensation Disclosure", "Related Party Transaction", "New Business Segment Report",
+  ];
+  const types = ["A","B","C","D","E"];
+  const filings = [];
+  WATCHLIST.forEach((stock, i) => {
+    const count = 1 + Math.floor(Math.random()*3);
+    for (let j = 0; j < count; j++) {
+      const daysAgo = Math.floor(Math.random() * dateRange);
+      const d = new Date(); d.setDate(d.getDate() - daysAgo);
+      const dt = d.toISOString().slice(0,10).replace(/-/g,"");
+      filings.push({
+        corp_name: stock.name,
+        corp_code: String(10000+i*100+j),
+        stock_code: pad(stock.symbol),
+        rcept_no: dt + String(800000+i*10+j),
+        rcept_dt: dt,
+        report_nm: titles[Math.floor(Math.random()*titles.length)],
+        pblntf_ty: types[Math.floor(Math.random()*types.length)],
+        flr_nm: stock.name,
+        watchlist_name: stock.name,
+        watchlist_symbol: stock.symbol,
+      });
+    }
+  });
+  filings.sort((a,b) => (b.rcept_dt||"").localeCompare(a.rcept_dt||""));
+  return filings;
+}
+
+// ═══════════════════════════════════════════════════════════════
+// CORP CODE CACHE
+// ═══════════════════════════════════════════════════════════════
+const CORP_CODE_CACHE_KEY = "dart_corp_codes_v2";
+let corpCodeMap = {}; // stock_code (6-digit padded) -> corp_code (8-digit)
+
+function loadCorpCodeCache() {
+  try {
+    const cached = localStorage.getItem(CORP_CODE_CACHE_KEY);
+    if (cached) {
+      const parsed = JSON.parse(cached);
+      if (parsed && parsed.ts && (Date.now() - parsed.ts) < 7*24*60*60*1000) {
+        corpCodeMap = parsed.m || {};
+      }
+    }
+  } catch (e) {}
+}
+
+function saveCorpCodeCache() {
+  try {
+    localStorage.setItem(CORP_CODE_CACHE_KEY, JSON.stringify({ m: corpCodeMap, ts: Date.now() }));
+  } catch (e) {}
+}
+
+// Learn corp_codes from any filing list response
+function learnCorpCodes(filingList) {
+  const symbolSet = new Set(WATCHLIST.map(s => pad(s.symbol)));
+  let learned = 0;
+  filingList.forEach(f => {
+    const sc = (f.stock_code || "").trim();
+    if (sc && f.corp_code && symbolSet.has(sc) && !corpCodeMap[sc]) {
+      corpCodeMap[sc] = f.corp_code;
+      learned++;
+    }
+  });
+  if (learned > 0) saveCorpCodeCache();
+}
+
+// ═══════════════════════════════════════════════════════════════
+// API FETCH — RELIABLE APPROACH
+// ═══════════════════════════════════════════════════════════════
+// Strategy:
+// 1. For companies with known corp_codes → direct per-company fetch (most accurate)
+// 2. For all others → bulk scan KOSPI (Y) + KOSDAQ (K) pages, match by stock_code
+// 3. Learn corp_codes from results for future direct fetches
+
+async function fetchFilings() {
+  showSpinner();
+  loadCorpCodeCache();
+
+  const bgn = getDaysAgo(dateRange);
+  const end = getToday();
+  const results = [];
+  const symbolSet = new Set(WATCHLIST.map(s => pad(s.symbol)));
+  const fetched = new Set(); // stock_codes we've already matched
+
+  try {
+    // Phase 1: Direct corp_code fetches for known companies
+    for (const stock of WATCHLIST) {
+      const paddedSym = pad(stock.symbol);
+      const cc = corpCodeMap[paddedSym];
+      if (!cc) continue;
+
+      try {
+        const data = await dartFetch({ endpoint: "list.json", corp_code: cc, bgn_de: bgn, end_de: end, page_count: 100 });
+        if (data.status === "000" && data.list) {
+          data.list.forEach(f => {
+            results.push({ ...f, watchlist_name: stock.name, watchlist_symbol: stock.symbol });
+          });
+          fetched.add(paddedSym);
+        }
+      } catch (e) {}
+    }
+
+    // Phase 2: Bulk scan for remaining companies
+    // Scan KOSPI (corp_cls=Y) and KOSDAQ (corp_cls=K) separately for better coverage
+    const remaining = WATCHLIST.filter(s => !fetched.has(pad(s.symbol)));
+    if (remaining.length > 0) {
+      const remSet = new Set(remaining.map(s => pad(s.symbol)));
+
+      for (const cls of ["Y", "K"]) {
+        for (let page = 1; page <= 5; page++) {
+          try {
+            const data = await dartFetch({ endpoint: "list.json", bgn_de: bgn, end_de: end, corp_cls: cls, page_no: page, page_count: 100 });
+            if (data.status !== "000" || !data.list) break;
+
+            // Learn corp_codes from ALL results
+            learnCorpCodes(data.list);
+
+            // Match watchlist companies
+            data.list.forEach(f => {
+              const sc = (f.stock_code || "").trim();
+              if (sc && remSet.has(sc)) {
+                const match = remaining.find(s => pad(s.symbol) === sc);
+                if (match) {
+                  results.push({ ...f, watchlist_name: match.name, watchlist_symbol: match.symbol });
+                }
+              }
+            });
+            if (!data.total_page || data.total_page <= page) break;
+          } catch (e) { break; }
+        }
+      }
+    }
+
+    // Deduplicate by rcept_no
+    const seen = new Set();
+    const deduped = results.filter(f => {
+      if (seen.has(f.rcept_no)) return false;
+      seen.add(f.rcept_no);
+      return true;
+    });
+    deduped.sort((a,b) => (b.rcept_dt||"").localeCompare(a.rcept_dt||""));
+
+    if (deduped.length > 0) {
+      isLive = true;
+      allFilings = deduped;
+    } else {
+      isLive = false;
+      allFilings = generateDemoData();
+    }
+  } catch (e) {
+    console.warn("DART API fetch failed:", e);
+    isLive = false;
+    allFilings = generateDemoData();
+  }
+
+  updateStatus();
+  renderStats();
+  renderFilings();
+  renderWatchlist();
+  document.getElementById("tab-count-filings").textContent = allFilings.length;
+  if (currentPage === "actions") renderActions();
+}
+
+// ═══════════════════════════════════════════════════════════════
+// RENDERING
+// ═══════════════════════════════════════════════════════════════
+
+function updateStatus() {
+  const dot = document.getElementById("status-dot");
+  const text = document.getElementById("status-text");
+  const refresh = document.getElementById("last-refresh");
+  dot.style.background = isLive ? "var(--green)" : "var(--amber)";
+  text.textContent = isLive ? "LIVE" : "DEMO";
+  refresh.textContent = "Updated " + new Date().toLocaleTimeString();
+}
+
+function showSpinner() {
+  document.getElementById("filing-list").innerHTML = '<div class="spinner-wrap"><div class="spinner"></div></div>';
+}
+
+function getFiltered() {
+  return allFilings.filter(f => {
+    const s = searchTerm.toLowerCase();
+    const matchSearch = !s ||
+      (f.corp_name||"").toLowerCase().includes(s) ||
+      (f.watchlist_name||"").toLowerCase().includes(s) ||
+      (f.report_nm||"").toLowerCase().includes(s);
+    const matchType = typeFilter === "ALL" || f.pblntf_ty === typeFilter;
+    return matchSearch && matchType;
+  });
+}
+
+function renderStats() {
+  const companies = new Set(allFilings.map(f => f.watchlist_symbol));
+  document.getElementById("stat-total").textContent = allFilings.length;
+  document.getElementById("stat-companies").textContent = companies.size;
+  document.getElementById("stat-watchlist").textContent = WATCHLIST.length;
+  document.getElementById("stat-range").textContent = dateRange + "d";
+}
+
+function renderFilings() {
+  const filtered = getFiltered();
+  const container = document.getElementById("filing-list");
+
+  if (filtered.length === 0) {
+    container.innerHTML = '<div style="text-align:center;padding:48px;color:var(--text-muted);font-size:14px">No filings match your filters</div>';
+    return;
+  }
+
+  container.innerHTML = filtered.map((f, i) => {
+    const isSel = selectedFiling && selectedFiling.rcept_no === f.rcept_no;
+    return `
+      <div class="filing-item ${isSel?'selected':''}" data-idx="${i}" style="animation:fadeUp .3s ease ${Math.min(i,20)*0.02}s both">
+        <div class="filing-date">${formatDate(f.rcept_dt)}</div>
+        <div class="filing-content">
+          <div class="filing-header">
+            <span class="filing-company">${f.watchlist_name||f.corp_name}</span>
+            <span class="filing-symbol">${f.stock_code||f.watchlist_symbol}</span>
+            ${makeBadge(f.pblntf_ty)}
+          </div>
+          <div class="filing-title">${f.report_nm||""}</div>
+        </div>
+        <div class="filing-arrow">→</div>
+      </div>`;
+  }).join("") + `<div class="filing-count">${filtered.length} filing${filtered.length!==1?"s":""} shown</div>`;
+
+  // Attach click handlers
+  container.querySelectorAll(".filing-item").forEach(el => {
+    el.addEventListener("click", () => {
+      const idx = parseInt(el.dataset.idx);
+      selectedFiling = filtered[idx];
+      renderFilings();
+      renderDetail();
+    });
+  });
+}
+
+function renderDetail() {
+  const panel = document.getElementById("detail-panel");
+  if (!selectedFiling) {
+    panel.innerHTML = `
+      <div class="detail-panel">
+        <div class="empty-detail">
+          <div class="empty-detail-icon">📋</div>
+          <div class="empty-detail-text">Select a filing to view details</div>
+        </div>
+      </div>`;
+    return;
+  }
+
+  const f = selectedFiling;
+  const ft = FILING_TYPES[f.pblntf_ty] || FILING_TYPES["E"];
+
+  panel.innerHTML = `
+    <div class="detail-panel animated">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:20px">
+        <div class="detail-section-label">Filing Detail</div>
+        <span id="close-detail" style="color:var(--text-muted);font-size:18px;cursor:pointer;line-height:1">×</span>
+      </div>
+      <div class="detail-company">${f.watchlist_name||f.corp_name}</div>
+      <div class="detail-symbol">${f.stock_code||f.watchlist_symbol}</div>
+      <div class="detail-title">${f.report_nm||""}</div>
+      <div class="detail-row"><span class="detail-row-label">Filing Type</span><span>${makeBadge(f.pblntf_ty)}</span></div>
+      <div class="detail-row"><span class="detail-row-label">Filing Date</span><span class="detail-row-value">${formatDate(f.rcept_dt)}</span></div>
+      <div class="detail-row"><span class="detail-row-label">Receipt No.</span><span class="detail-row-value">${f.rcept_no||"—"}</span></div>
+      <div class="detail-row"><span class="detail-row-label">Filer</span><span class="detail-row-value">${f.flr_nm||"—"}</span></div>
+      <div class="detail-row"><span class="detail-row-label">Corp Code</span><span class="detail-row-value">${f.corp_code||"—"}</span></div>
+      <a class="btn-dart" href="https://dart.fss.or.kr/dsaf001/main.do?rcpNo=${f.rcept_no}" target="_blank" rel="noopener">View on DART →</a>
+      <a class="btn-dart" href="https://englishdart.fss.or.kr/dsaf001/main.do?rcpNo=${f.rcept_no}" target="_blank" rel="noopener" style="margin-top:8px;background:var(--bg-raised);color:var(--text-secondary);border:1px solid var(--border)">Try English DART →</a>
+    </div>`;
+
+  document.getElementById("close-detail").addEventListener("click", () => {
+    selectedFiling = null;
+    renderFilings();
+    renderDetail();
+  });
+}
+
+function renderWatchlist() {
+  const container = document.getElementById("watchlist-container");
+  container.innerHTML = WATCHLIST.map(s => {
+    const count = allFilings.filter(f => f.watchlist_symbol === s.symbol).length;
+    return `
+      <div class="watchlist-item" data-name="${s.name}">
+        <span class="watchlist-name">${s.name}</span>
+        <div class="watchlist-meta">
+          <span class="watchlist-code">${s.symbol}</span>
+          ${count > 0 ? `<span class="watchlist-count">${count}</span>` : ""}
+        </div>
+      </div>`;
+  }).join("");
+
+  container.querySelectorAll(".watchlist-item").forEach(el => {
+    el.addEventListener("click", () => {
+      const name = el.dataset.name;
+      document.getElementById("search-input").value = name;
+      searchTerm = name;
+      renderFilings();
+    });
+  });
+}
+
+// ═══════════════════════════════════════════════════════════════
+// WATCHLIST EDITOR
+// ═══════════════════════════════════════════════════════════════
+
+function openWatchlistEditor() {
+  document.getElementById("wl-modal").classList.remove("hidden");
+  renderWatchlistEditor();
+}
+
+function closeWatchlistEditor() {
+  document.getElementById("wl-modal").classList.add("hidden");
+  document.getElementById("add-error").textContent = "";
+  // Refresh dashboard with updated watchlist
+  renderStats();
+  renderWatchlist();
+  fetchFilings();
+}
+
+function renderWatchlistEditor() {
+  const list = document.getElementById("wl-edit-list");
+  const count = document.getElementById("wl-edit-count");
+  count.textContent = `${WATCHLIST.length} companies`;
+  document.getElementById("wl-count").textContent = WATCHLIST.length;
+
+  list.innerHTML = WATCHLIST.map((s, i) => `
+    <div class="wl-edit-item" data-idx="${i}">
+      <div class="wl-edit-info">
+        <span class="wl-edit-name">${s.name}</span>
+        <span class="wl-edit-sym">${s.symbol}</span>
+      </div>
+      <button class="btn-remove" data-idx="${i}" title="Remove">×</button>
+    </div>
+  `).join("");
+
+  // Bind remove buttons
+  list.querySelectorAll(".btn-remove").forEach(btn => {
+    btn.addEventListener("click", (e) => {
+      e.stopPropagation();
+      const idx = parseInt(btn.dataset.idx);
+      WATCHLIST.splice(idx, 1);
+      saveWatchlist();
+      renderWatchlistEditor();
+    });
+  });
+}
+
+function addToWatchlist() {
+  const nameInput = document.getElementById("add-name");
+  const symbolInput = document.getElementById("add-symbol");
+  const errorEl = document.getElementById("add-error");
+
+  const name = nameInput.value.trim();
+  let symbol = symbolInput.value.trim();
+  errorEl.textContent = "";
+
+  if (!name) { errorEl.textContent = "Company name is required."; nameInput.focus(); return; }
+  if (!symbol) { errorEl.textContent = "Symbol code is required."; symbolInput.focus(); return; }
+
+  // Pad symbol to 6 digits
+  symbol = symbol.padStart(6, "0");
+
+  // Check for duplicates
+  if (WATCHLIST.some(s => s.symbol === symbol)) {
+    errorEl.textContent = `Symbol ${symbol} already exists in watchlist.`;
+    return;
+  }
+
+  WATCHLIST.push({ name, symbol });
+  saveWatchlist();
+  nameInput.value = "";
+  symbolInput.value = "";
+  nameInput.focus();
+  renderWatchlistEditor();
+}
+
+function resetWatchlist() {
+  if (confirm("Reset watchlist to the original 30 companies? Any custom additions will be removed.")) {
+    WATCHLIST.length = 0;
+    DEFAULT_WATCHLIST.forEach(s => WATCHLIST.push({...s}));
+    saveWatchlist();
+    renderWatchlistEditor();
+  }
+}
+
+// ═══════════════════════════════════════════════════════════════
+// TAB NAVIGATION
+// ═══════════════════════════════════════════════════════════════
+let currentPage = "filings";
+
+function switchPage(page) {
+  currentPage = page;
+  document.querySelectorAll(".nav-tab").forEach(t => t.classList.toggle("active", t.dataset.page === page));
+  document.querySelectorAll(".page-section").forEach(s => s.classList.toggle("active", s.id === "page-" + page));
+  if (page === "actions") renderActions();
+}
+
+// ═══════════════════════════════════════════════════════════════
+// SHAREHOLDER ACTIONS — MARKET-WIDE SCAN
+// ═══════════════════════════════════════════════════════════════
+
+// Keywords to classify filings (Korean + English terms from DART)
+const ACTION_KEYWORDS = {
+  buyback: [
+    "자기주식", "자사주", "treasury", "buyback", "buy-back", "repurchase",
+    "stock repurchase", "자기주식취득", "자기주식처분", "주식소각",
+    "self-stock", "own shares", "acquisition of treasury",
+  ],
+  dividend: [
+    "배당", "dividend", "현금배당", "주식배당", "cash dividend", "stock dividend",
+    "중간배당", "interim dividend", "결산배당", "year-end dividend",
+    "분기배당", "quarterly dividend",
+  ],
+  tender: [
+    "공개매수", "tender offer", "공개매수신고", "tender", "public purchase",
+    "공개매수결과", "공개매수기간", "takeover bid",
+  ],
+};
+
+function classifyAction(filing) {
+  const text = ((filing.report_nm || "") + " " + (filing.corp_name || "")).toLowerCase();
+  for (const [category, keywords] of Object.entries(ACTION_KEYWORDS)) {
+    for (const kw of keywords) {
+      if (text.includes(kw.toLowerCase())) return category;
+    }
+  }
+  return null;
+}
+
+// State for actions page
+let saSearchTerm = "";
+let saActionFilter = "ALL";
+let saScopeFilter = "all"; // "all" = market-wide, "watchlist" = watchlist only
+let saDateRange = 30;
+let saSelectedFiling = null;
+let marketWideActions = []; // cached market-wide scan results
+let mwLastFetched = null;   // timestamp of last market-wide fetch
+let mwLastRange = null;     // date range of last fetch
+let mwLoading = false;
+
+// Fetch market-wide actions — lightweight: 3 pages max
+async function fetchMarketWideActions() {
+  mwLoading = true;
+  const bgn = getDaysAgo(saDateRange);
+  const end = getToday();
+  const results = [];
+
+  try {
+    // Scan 3 pages of all filings (300 filings), classify each
+    for (let page = 1; page <= 3; page++) {
+      const data = await dartFetch({ endpoint: "list.json", bgn_de: bgn, end_de: end, page_no: page, page_count: 100 });
+      if (data.status !== "000" || !data.list) break;
+
+      data.list.forEach(f => {
+        const cat = classifyAction(f);
+        if (cat) {
+          // Check if this is a watchlist company
+          const sc = (f.stock_code || "").trim();
+          const wlMatch = WATCHLIST.find(s => pad(s.symbol) === sc);
+          results.push({
+            ...f,
+            actionCategory: cat,
+            watchlist_name: wlMatch ? wlMatch.name : f.corp_name,
+            watchlist_symbol: wlMatch ? wlMatch.symbol : sc,
+            isWatchlist: !!wlMatch,
+          });
+        }
+      });
+
+      if (!data.total_page || data.total_page <= page) break;
+    }
+  } catch (e) {
+    console.warn("Market-wide scan failed:", e);
+  }
+
+  // Also include watchlist-sourced actions from allFilings
+  // (these may come from direct corp_code fetches not in the bulk pages)
+  const seenRcept = new Set(results.map(f => f.rcept_no));
+  allFilings.forEach(f => {
+    if (seenRcept.has(f.rcept_no)) return;
+    const cat = classifyAction(f);
+    if (cat) {
+      results.push({
+        ...f,
+        actionCategory: cat,
+        isWatchlist: true,
+      });
+    }
+  });
+
+  // Deduplicate
+  const seen = new Set();
+  marketWideActions = results.filter(f => {
+    if (seen.has(f.rcept_no)) return false;
+    seen.add(f.rcept_no);
+    return true;
+  });
+  marketWideActions.sort((a, b) => (b.rcept_dt || "").localeCompare(a.rcept_dt || ""));
+
+  mwLastFetched = Date.now();
+  mwLastRange = saDateRange;
+  mwLoading = false;
+}
+
+// Generate demo market-wide actions when API is unavailable
+function generateDemoActions() {
+  const demoCompanies = [
+    ...WATCHLIST.slice(0, 8).map(s => ({ name: s.name, symbol: s.symbol, isWatchlist: true })),
+    { name: "Samsung Electronics", symbol: "005930", isWatchlist: false },
+    { name: "SK Hynix", symbol: "000660", isWatchlist: false },
+    { name: "Hyundai Motor", symbol: "005380", isWatchlist: false },
+    { name: "POSCO Holdings", symbol: "005490", isWatchlist: false },
+    { name: "KB Financial Group", symbol: "105560", isWatchlist: false },
+    { name: "Shinhan Financial", symbol: "055550", isWatchlist: false },
+    { name: "Celltrion", symbol: "068270", isWatchlist: false },
+    { name: "LG Energy Solution", symbol: "373220", isWatchlist: false },
+  ];
+  const actionTitles = {
+    buyback: [
+      "Decision on Acquisition of Treasury Shares",
+      "자기주식취득 결정",
+      "Stock Repurchase Plan Announcement",
+      "자기주식처분 결과보고서",
+      "Treasury Stock Acquisition Report",
+    ],
+    tender: [
+      "공개매수신고서",
+      "Tender Offer Announcement",
+      "공개매수결과 보고서",
+      "Public Purchase Notification",
+    ],
+    dividend: [
+      "Decision on Cash Dividend",
+      "현금배당 결정",
+      "Interim Dividend Declaration",
+      "중간배당 결정",
+      "Year-End Dividend Announcement",
+    ],
+  };
+  const cats = ["buyback", "tender", "dividend"];
+  const results = [];
+
+  demoCompanies.forEach((co, i) => {
+    const numActions = 1 + Math.floor(Math.random() * 2);
+    for (let j = 0; j < numActions; j++) {
+      const cat = cats[Math.floor(Math.random() * cats.length)];
+      const titles = actionTitles[cat];
+      const daysAgo = Math.floor(Math.random() * saDateRange);
+      const d = new Date(); d.setDate(d.getDate() - daysAgo);
+      const dt = d.toISOString().slice(0, 10).replace(/-/g, "");
+      results.push({
+        corp_name: co.name,
+        corp_code: String(20000 + i * 10 + j),
+        stock_code: pad(co.symbol),
+        rcept_no: dt + String(900000 + i * 10 + j),
+        rcept_dt: dt,
+        report_nm: titles[Math.floor(Math.random() * titles.length)],
+        pblntf_ty: cat === "buyback" ? "B" : cat === "tender" ? "B" : "B",
+        flr_nm: co.name,
+        watchlist_name: co.name,
+        watchlist_symbol: co.symbol,
+        actionCategory: cat,
+        isWatchlist: co.isWatchlist,
+      });
+    }
+  });
+
+  results.sort((a, b) => (b.rcept_dt || "").localeCompare(a.rcept_dt || ""));
+  return results;
+}
+
+function getAllActions() {
+  let source = marketWideActions.length > 0 ? marketWideActions : generateDemoActions();
+
+  // If scope is watchlist-only, filter
+  if (saScopeFilter === "watchlist") {
+    const symbolSet = new Set(WATCHLIST.map(s => pad(s.symbol)));
+    source = source.filter(f => f.isWatchlist || symbolSet.has((f.stock_code || "").trim()));
+  }
+
+  return source;
+}
+
+function getFilteredActions() {
+  let actions = getAllActions();
+
+  // Apply date range
+  const cutoff = getDaysAgo(saDateRange);
+  actions = actions.filter(f => (f.rcept_dt || "") >= cutoff);
+
+  // Apply search
+  if (saSearchTerm) {
+    const s = saSearchTerm.toLowerCase();
+    actions = actions.filter(f =>
+      (f.corp_name || "").toLowerCase().includes(s) ||
+      (f.watchlist_name || "").toLowerCase().includes(s) ||
+      (f.report_nm || "").toLowerCase().includes(s)
+    );
+  }
+
+  // Apply category filter
+  if (saActionFilter !== "ALL") {
+    actions = actions.filter(f => f.actionCategory === saActionFilter);
+  }
+
+  return actions;
+}
+
+function makeActionBadge(category) {
+  const labels = { buyback: "BUYBACK", dividend: "DIVIDEND", tender: "TENDER" };
+  return `<span class="action-badge ${category || 'unknown'}">${labels[category] || "OTHER"}</span>`;
+}
+
+function renderActionStats() {
+  const all = getAllActions().filter(f => (f.rcept_dt || "") >= getDaysAgo(saDateRange));
+  const buybacks = all.filter(f => f.actionCategory === "buyback").length;
+  const dividends = all.filter(f => f.actionCategory === "dividend").length;
+  const tenders = all.filter(f => f.actionCategory === "tender").length;
+
+  document.getElementById("sa-stat-total").textContent = all.length;
+  document.getElementById("sa-stat-buybacks").textContent = buybacks;
+  document.getElementById("sa-stat-dividends").textContent = dividends;
+  document.getElementById("sa-stat-tenders").textContent = tenders;
+
+  document.getElementById("tab-count-actions").textContent = all.length;
+  document.getElementById("tab-count-filings").textContent = allFilings.length;
+
+  // Show/hide API note
+  document.getElementById("sa-api-note").style.display = saScopeFilter === "all" ? "block" : "none";
+}
+
+async function renderActions() {
+  const container = document.getElementById("sa-filing-list");
+
+  // If market-wide and not yet fetched (or range changed), fetch
+  if (saScopeFilter === "all" && (marketWideActions.length === 0 || mwLastRange !== saDateRange)) {
+    container.innerHTML = '<div class="spinner-wrap"><div class="spinner"></div></div>';
+    await fetchMarketWideActions();
+  }
+
+  renderActionStats();
+  const filtered = getFilteredActions();
+
+  if (filtered.length === 0) {
+    container.innerHTML = '<div style="text-align:center;padding:48px;color:var(--text-muted);font-size:14px">No shareholder actions found in this period</div>';
+    renderActionDetail();
+    return;
+  }
+
+  container.innerHTML = filtered.map((f, i) => {
+    const isSel = saSelectedFiling && saSelectedFiling.rcept_no === f.rcept_no;
+    const wlTag = f.isWatchlist ? '<span style="font-size:9px;color:var(--gold-dim);font-family:var(--mono);margin-left:4px">★</span>' : '';
+    return `
+      <div class="filing-item ${isSel?'selected':''}" data-idx="${i}" style="animation:fadeUp .3s ease ${Math.min(i,20)*0.02}s both">
+        <div class="filing-date">${formatDate(f.rcept_dt)}</div>
+        <div class="filing-content">
+          <div class="filing-header">
+            <span class="filing-company">${f.watchlist_name||f.corp_name}${wlTag}</span>
+            <span class="filing-symbol">${f.stock_code||f.watchlist_symbol}</span>
+            ${makeActionBadge(f.actionCategory)}
+          </div>
+          <div class="filing-title">${f.report_nm||""}</div>
+        </div>
+        <div class="filing-arrow">→</div>
+      </div>`;
+  }).join("") + `<div class="filing-count">${filtered.length} action${filtered.length!==1?"s":""} shown${saScopeFilter==="all"?" · ★ = watchlist":""}</div>`;
+
+  container.querySelectorAll(".filing-item").forEach(el => {
+    el.addEventListener("click", () => {
+      saSelectedFiling = filtered[parseInt(el.dataset.idx)];
+      renderActions();
+    });
+  });
+
+  renderActionDetail();
+}
+
+function renderActionDetail() {
+  const panel = document.getElementById("sa-detail-panel");
+  if (!saSelectedFiling) {
+    panel.innerHTML = `
+      <div class="detail-panel">
+        <div class="empty-detail">
+          <div class="empty-detail-icon">📊</div>
+          <div class="empty-detail-text">Select an action to view details</div>
+        </div>
+      </div>`;
+    return;
+  }
+
+  const f = saSelectedFiling;
+  panel.innerHTML = `
+    <div class="detail-panel animated">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:20px">
+        <div class="detail-section-label">Action Detail</div>
+        <span id="sa-close-detail" style="color:var(--text-muted);font-size:18px;cursor:pointer;line-height:1">×</span>
+      </div>
+      <div class="detail-company">${f.watchlist_name||f.corp_name}${f.isWatchlist?'<span style="font-size:10px;color:var(--gold-dim);margin-left:6px">★ Watchlist</span>':''}</div>
+      <div class="detail-symbol">${f.stock_code||f.watchlist_symbol}</div>
+      <div class="detail-title">${f.report_nm||""}</div>
+      <div class="detail-row"><span class="detail-row-label">Action Type</span><span>${makeActionBadge(f.actionCategory)}</span></div>
+      <div class="detail-row"><span class="detail-row-label">Filing Date</span><span class="detail-row-value">${formatDate(f.rcept_dt)}</span></div>
+      <div class="detail-row"><span class="detail-row-label">Receipt No.</span><span class="detail-row-value">${f.rcept_no||"—"}</span></div>
+      <div class="detail-row"><span class="detail-row-label">Filer</span><span class="detail-row-value">${f.flr_nm||"—"}</span></div>
+      <div class="detail-row"><span class="detail-row-label">Corp Code</span><span class="detail-row-value">${f.corp_code||"—"}</span></div>
+      <a class="btn-dart" href="https://dart.fss.or.kr/dsaf001/main.do?rcpNo=${f.rcept_no}" target="_blank" rel="noopener">View on DART →</a>
+      <a class="btn-dart" href="https://englishdart.fss.or.kr/dsaf001/main.do?rcpNo=${f.rcept_no}" target="_blank" rel="noopener" style="margin-top:8px;background:var(--bg-raised);color:var(--text-secondary);border:1px solid var(--border)">Try English DART →</a>
+    </div>`;
+
+  document.getElementById("sa-close-detail").addEventListener("click", () => {
+    saSelectedFiling = null;
+    renderActions();
+  });
+}
+
+// ═══════════════════════════════════════════════════════════════
+// INIT
+// ═══════════════════════════════════════════════════════════════
+
+document.addEventListener("DOMContentLoaded", () => {
+  const loginScreen = document.getElementById("login-screen");
+  const app = document.getElementById("app");
+
+  // Check existing session
+  if (checkSession()) {
+    loginScreen.classList.add("hidden");
+    app.classList.add("visible");
+    init();
+    return;
+  }
+
+  // Login handlers
+  const pwInput = document.getElementById("login-pw");
+  const loginBtn = document.getElementById("login-btn");
+  const loginError = document.getElementById("login-error");
+
+  function tryLogin() {
+    const pw = pwInput.value;
+    if (authenticate(pw)) {
+      loginScreen.classList.add("hidden");
+      app.classList.add("visible");
+      init();
+    } else {
+      loginError.textContent = "Invalid password. Please try again.";
+      pwInput.value = "";
+      pwInput.focus();
+    }
+  }
+
+  loginBtn.addEventListener("click", tryLogin);
+  pwInput.addEventListener("keydown", e => { if (e.key === "Enter") tryLogin(); });
+});
+
+function init() {
+  // Bind controls
+  document.getElementById("search-input").addEventListener("input", e => {
+    searchTerm = e.target.value;
+    renderFilings();
+  });
+  document.getElementById("type-filter").addEventListener("change", e => {
+    typeFilter = e.target.value;
+    renderFilings();
+  });
+  document.getElementById("date-range").addEventListener("change", e => {
+    dateRange = parseInt(e.target.value);
+    fetchFilings();
+  });
+  document.getElementById("refresh-btn").addEventListener("click", fetchFilings);
+  document.getElementById("logout-btn").addEventListener("click", logout);
+
+  // Watchlist editor bindings
+  document.getElementById("edit-wl-btn").addEventListener("click", openWatchlistEditor);
+  document.getElementById("wl-modal-close").addEventListener("click", closeWatchlistEditor);
+  document.getElementById("wl-modal").addEventListener("click", (e) => {
+    if (e.target.id === "wl-modal") closeWatchlistEditor();
+  });
+  document.getElementById("add-btn").addEventListener("click", addToWatchlist);
+  document.getElementById("add-name").addEventListener("keydown", (e) => { if (e.key === "Enter") { document.getElementById("add-symbol").focus(); } });
+  document.getElementById("add-symbol").addEventListener("keydown", (e) => { if (e.key === "Enter") addToWatchlist(); });
+  document.getElementById("reset-wl-btn").addEventListener("click", resetWatchlist);
+
+  // Tab navigation
+  document.querySelectorAll(".nav-tab").forEach(tab => {
+    tab.addEventListener("click", () => switchPage(tab.dataset.page));
+  });
+
+  // Shareholder actions page controls
+  document.getElementById("sa-search-input").addEventListener("input", e => {
+    saSearchTerm = e.target.value;
+    renderActions();
+  });
+  document.getElementById("sa-action-filter").addEventListener("change", e => {
+    saActionFilter = e.target.value;
+    renderActions();
+  });
+  document.getElementById("sa-scope-filter").addEventListener("change", e => {
+    saScopeFilter = e.target.value;
+    renderActions();
+  });
+  document.getElementById("sa-date-range").addEventListener("change", e => {
+    saDateRange = parseInt(e.target.value);
+    marketWideActions = []; // force re-fetch on range change
+    renderActions();
+  });
+
+  // Initial render
+  renderDetail();
+  fetchFilings();
+}
+</script>
+</body>
+</html>
