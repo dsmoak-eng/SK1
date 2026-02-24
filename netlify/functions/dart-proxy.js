@@ -1,4 +1,4 @@
-netlify/functions/dart-proxy.js
+
 const API_KEY = "9775291c3b36cd68194e1d33e637f3783af7fcb0";
 const DART_BASE = "https://opendart.fss.or.kr/api";
 
