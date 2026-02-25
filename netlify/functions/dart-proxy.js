@@ -154,6 +154,53 @@ exports.handler = async (event) => {
       return ok(H, { status: "ok", map_total: map.size, searched: codes.length, found: Object.keys(results).length, results });
     }
 
+    // Find corp_code for a stock_code by scanning recent filings
+    if (p.action === "find_corp") {
+      const stockCode = (p.stock_code || "").trim().padStart(6, "0");
+      if (!stockCode || stockCode === "000000") return err(H, 400, "Need stock_code");
+
+      // Search recent 3 months of all filings (max allowed without corp_code)
+      const now = new Date();
+      const endDe = now.toISOString().slice(0, 10).replace(/-/g, "");
+      const start = new Date(now);
+      start.setMonth(start.getMonth() - 3);
+      const bgnDe = start.toISOString().slice(0, 10).replace(/-/g, "");
+
+      console.log(`[find_corp] Searching for stock_code ${stockCode} in ${bgnDe}-${endDe}`);
+
+      // Scan up to 5 pages (500 filings)
+      for (let page = 1; page <= 5; page++) {
+        const r = await dartJson("list.json", {
+          bgn_de: bgnDe, end_de: endDe, page_no: String(page), page_count: "100",
+        });
+
+        if (r._err) return ok(H, { status: "parse_error", raw: r._raw });
+        if (r.status !== "000" || !r.list) {
+          console.log(`[find_corp] DART status ${r.status} on page ${page}`);
+          break;
+        }
+
+        for (const f of r.list) {
+          if ((f.stock_code || "").trim() === stockCode) {
+            console.log(`[find_corp] Found! ${stockCode} → ${f.corp_code} (${f.corp_name})`);
+            return ok(H, {
+              status: "ok",
+              stock_code: stockCode,
+              corp_code: f.corp_code,
+              corp_name: f.corp_name,
+              found_in: f.report_nm,
+            });
+          }
+        }
+        console.log(`[find_corp] Page ${page}/${r.total_page}: no match yet`);
+
+        // Don't scan more pages than exist
+        if (page >= (r.total_page || 1)) break;
+      }
+
+      return ok(H, { status: "not_found", stock_code: stockCode, message: "Not found in recent 3 months of filings (company may not have filed recently)" });
+    }
+
     // Filings: fetch for one company
     if (p.action === "filings") {
       if (!p.corp_code || !p.bgn_de || !p.end_de) return err(H, 400, "Need corp_code, bgn_de, end_de");
