@@ -1,0 +1,598 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>DART Filing Alerts</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;0,9..40,700;1,9..40,400&family=JetBrains+Mono:wght@400;500&family=Noto+Sans+KR:wght@400;500;700&display=swap" rel="stylesheet">
+<style>
+:root {
+  --bg: #06080C; --surface: #0D1017; --raised: #12151C; --hover: #171B24;
+  --border: #1C2030; --border-gold: rgba(212,175,90,0.15);
+  --gold: #D4AF5A; --gold-b: #E8C872; --gold-d: #A8883E;
+  --t1: #ECEDEE; --t2: #9BA1AD; --t3: #5A6070;
+  --blue: #5B9AFF; --red: #FF6B6B; --amber: #FFAB40; --violet: #A78BFA;
+  --green: #4ADE80; --cyan: #22D3EE; --pink: #F472B6; --orange: #FB923C;
+  --mono: 'JetBrains Mono', monospace; --sans: 'DM Sans', 'Noto Sans KR', sans-serif;
+}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+body{font-family:var(--sans);background:var(--bg);color:var(--t1);min-height:100vh}
+::-webkit-scrollbar{width:5px}::-webkit-scrollbar-thumb{background:#2A2E38;border-radius:3px}
+@keyframes spin{to{transform:rotate(360deg)}}
+@keyframes fadeUp{from{opacity:0;transform:translateY(12px)}to{opacity:1;transform:translateY(0)}}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.4}}
+@keyframes glow{0%,100%{box-shadow:0 0 20px rgba(212,175,90,.08)}50%{box-shadow:0 0 40px rgba(212,175,90,.15)}}
+@keyframes loginReveal{from{opacity:0;transform:scale(.96) translateY(20px)}to{opacity:1;transform:scale(1) translateY(0)}}
+
+/* Login */
+#login{position:fixed;inset:0;z-index:9999;display:flex;align-items:center;justify-content:center;background:var(--bg)}
+#login.hidden{display:none}
+.login-box{width:380px;padding:48px 40px;background:var(--surface);border:1px solid var(--border);border-radius:16px;animation:loginReveal .5s cubic-bezier(.16,1,.3,1)}
+.login-logo{width:48px;height:48px;border-radius:12px;background:linear-gradient(135deg,var(--gold),var(--gold-d));display:flex;align-items:center;justify-content:center;font-size:24px;font-weight:800;color:var(--bg);margin:0 auto 24px;animation:glow 3s infinite}
+.login-title{text-align:center;font-size:20px;font-weight:700;margin-bottom:6px}
+.login-sub{text-align:center;font-size:12px;color:var(--t3);margin-bottom:32px;font-family:var(--mono)}
+.login-label{display:block;font-size:10px;font-weight:600;color:var(--t3);text-transform:uppercase;letter-spacing:1px;margin-bottom:8px}
+.login-input{width:100%;padding:12px 16px;border-radius:8px;border:1px solid var(--border);background:var(--raised);color:var(--t1);font-size:14px;font-family:var(--mono);outline:none}
+.login-input:focus{border-color:var(--gold-d)}
+.login-btn{width:100%;padding:13px;border:none;border-radius:8px;background:linear-gradient(135deg,var(--gold),var(--gold-d));color:var(--bg);font-size:14px;font-weight:700;font-family:var(--sans);cursor:pointer;margin-top:24px}
+.login-btn:hover{transform:translateY(-1px);box-shadow:0 4px 20px rgba(212,175,90,.25)}
+.login-error{color:var(--red);font-size:12px;text-align:center;margin-top:14px;min-height:18px}
+
+/* App */
+#app{display:none}#app.visible{display:block}
+.header{position:sticky;top:0;z-index:100;border-bottom:1px solid var(--border);background:rgba(13,16,23,.97);backdrop-filter:blur(12px);padding:18px 32px}
+.header-inner{display:flex;align-items:center;justify-content:space-between;max-width:1440px;margin:0 auto}
+.header-brand{display:flex;align-items:center;gap:14px}
+.header-icon{width:34px;height:34px;border-radius:8px;background:linear-gradient(135deg,var(--gold),var(--gold-d));display:flex;align-items:center;justify-content:center;font-size:17px;font-weight:800;color:var(--bg)}
+.header-title{font-size:17px;font-weight:700}
+.header-subtitle{font-size:10px;color:var(--t3);font-family:var(--mono)}
+.header-actions{display:flex;align-items:center;gap:12px}
+.status-dot{width:6px;height:6px;border-radius:50%;animation:pulse 2s infinite}
+.btn-sm{padding:6px 14px;border-radius:6px;border:1px solid var(--border);background:var(--raised);color:var(--t2);font-size:12px;font-weight:500;cursor:pointer;font-family:var(--sans);transition:all .15s}
+.btn-sm:hover{background:var(--hover);color:var(--gold-b);border-color:var(--border-gold)}
+.main{max-width:1440px;margin:0 auto;padding:24px 32px}
+.stats-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin-bottom:24px}
+.stat-card{background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:16px 20px}
+.stat-label{font-size:10px;font-weight:600;color:var(--t3);text-transform:uppercase;letter-spacing:1px;margin-bottom:6px}
+.stat-value{font-size:28px;font-weight:700;font-family:var(--mono);letter-spacing:-1px}
+.controls{display:flex;gap:12px;margin-bottom:20px;flex-wrap:wrap;align-items:center}
+.search-wrap{position:relative;flex:1 1 280px}
+.search-icon{position:absolute;left:12px;top:50%;transform:translateY(-50%);color:var(--t3);font-size:14px;pointer-events:none}
+.search-input{width:100%;padding:10px 12px 10px 34px;border-radius:8px;border:1px solid var(--border);background:var(--surface);color:var(--t1);font-size:13px;font-family:var(--sans);outline:none}
+.search-input:focus{border-color:var(--gold-d)}
+.select-input{padding:10px 14px;border-radius:8px;border:1px solid var(--border);background:var(--surface);color:var(--t1);font-size:13px;font-family:var(--sans);outline:none;cursor:pointer}
+.content-grid{display:flex;gap:20px}
+.filing-list{flex:1;min-width:0}
+.sidebar{width:360px;flex-shrink:0;position:sticky;top:80px;align-self:flex-start}
+.filing-item{display:flex;align-items:flex-start;gap:14px;padding:14px 18px;border-radius:8px;border:1px solid transparent;cursor:pointer;transition:all .15s}
+.filing-item:hover{background:var(--surface)}
+.filing-item.selected{background:var(--raised);border-color:var(--border-gold)}
+.filing-date{min-width:72px;font-family:var(--mono);font-size:11px;color:var(--t3);padding-top:2px}
+.filing-content{flex:1;min-width:0}
+.filing-header{display:flex;align-items:center;gap:8px;margin-bottom:4px;flex-wrap:wrap}
+.filing-company{font-size:13px;font-weight:600;color:var(--gold-b)}
+.filing-symbol{font-size:10px;color:var(--t3);font-family:var(--mono)}
+.filing-title{font-size:13px;color:var(--t2);line-height:1.4;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.filing-count{text-align:center;padding:16px;color:var(--t3);font-size:11px;font-family:var(--mono)}
+.badge{display:inline-block;padding:2px 8px;border-radius:4px;font-size:10px;font-weight:700;letter-spacing:.5px;text-transform:uppercase;color:#fff}
+.detail-panel{background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:24px}
+.detail-label{font-size:10px;font-weight:600;color:var(--t3);text-transform:uppercase;letter-spacing:1px}
+.detail-company{font-size:18px;font-weight:700;color:var(--gold-b);margin-bottom:4px}
+.detail-symbol{font-size:11px;color:var(--t3);font-family:var(--mono);margin-bottom:20px}
+.detail-title{font-size:14px;color:#D4D4D8;line-height:1.6;margin-bottom:20px;word-break:break-word}
+.detail-row{display:flex;justify-content:space-between;align-items:center;padding:10px 0;border-top:1px solid var(--border)}
+.detail-row-label{font-size:11px;color:var(--t3);text-transform:uppercase;letter-spacing:.5px}
+.detail-row-value{font-size:12px;color:var(--t2);font-family:var(--mono);text-align:right}
+.btn-dart{display:block;width:100%;margin-top:20px;padding:11px 0;border:none;border-radius:8px;background:linear-gradient(135deg,var(--gold),var(--gold-d));color:var(--bg);font-size:13px;font-weight:700;font-family:var(--sans);text-align:center;text-decoration:none;cursor:pointer}
+.btn-dart:hover{transform:translateY(-1px);box-shadow:0 4px 20px rgba(212,175,90,.25)}
+.btn-dart-secondary{display:block;width:100%;margin-top:8px;padding:9px 0;border:1px solid var(--border);border-radius:8px;background:transparent;color:var(--t2);font-size:12px;font-weight:500;font-family:var(--sans);text-align:center;text-decoration:none;cursor:pointer}
+.btn-dart-secondary:hover{border-color:var(--gold-d);color:var(--gold-b)}
+.empty-detail{text-align:center;padding:32px}
+.wl-panel{background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:20px;margin-top:14px}
+.wl-scroll{max-height:280px;overflow-y:auto}
+.wl-item{display:flex;align-items:center;justify-content:space-between;padding:7px 10px;border-radius:6px;cursor:pointer;font-size:12px;transition:background .15s}
+.wl-item:hover{background:var(--hover)}
+.wl-meta{display:flex;align-items:center;gap:8px}
+.wl-code{font-family:var(--mono);font-size:10px;color:var(--t3)}
+.wl-count{background:rgba(212,175,90,.12);color:var(--gold-b);font-size:10px;font-weight:700;padding:1px 6px;border-radius:4px;font-family:var(--mono)}
+.spinner-wrap{display:flex;justify-content:center;padding:40px}
+.spinner{width:32px;height:32px;border:3px solid rgba(255,255,255,.06);border-top:3px solid var(--gold);border-radius:50%;animation:spin .8s linear infinite}
+.error-box{background:#1C1215;border:1px solid #7F1D1D;border-radius:10px;padding:20px;color:#FCA5A5;font-size:13px;margin-bottom:16px}
+.log-panel{background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:12px;margin-bottom:16px;font-family:var(--mono);font-size:11px;color:var(--t3);max-height:120px;overflow-y:auto;display:none}
+.log-panel.show{display:block}
+.log-panel .log-line{padding:2px 0;border-bottom:1px solid rgba(255,255,255,.03)}
+.log-panel .log-ok{color:var(--green)}
+.log-panel .log-err{color:var(--red)}
+.log-panel .log-info{color:var(--blue)}
+.progress-bar{height:3px;background:var(--border);border-radius:2px;margin-bottom:16px;overflow:hidden}
+.progress-fill{height:100%;background:linear-gradient(90deg,var(--gold),var(--gold-b));border-radius:2px;transition:width .3s ease}
+
+@media(max-width:900px){.stats-grid{grid-template-columns:repeat(2,1fr)}.content-grid{flex-direction:column}.sidebar{width:100%;position:static}.header{padding:14px 16px}.main{padding:16px}}
+</style>
+</head>
+<body>
+
+<div id="login">
+  <div class="login-box">
+    <div class="login-logo">D</div>
+    <div class="login-title">DART Filing Alerts</div>
+    <div class="login-sub">Korea FSS Electronic Disclosure</div>
+    <label class="login-label">Password</label>
+    <input type="password" id="login-pw" class="login-input" placeholder="Enter access password" autofocus>
+    <button id="login-btn" class="login-btn">Authenticate →</button>
+    <div id="login-error" class="login-error"></div>
+  </div>
+</div>
+
+<div id="app">
+  <div class="header">
+    <div class="header-inner">
+      <div class="header-brand">
+        <div class="header-icon">D</div>
+        <div>
+          <div class="header-title">DART Filing Alerts</div>
+          <div class="header-subtitle">Korea FSS · <span id="s-watchlist">30</span> companies tracked</div>
+        </div>
+      </div>
+      <div class="header-actions">
+        <span class="status-dot" id="status-dot" style="background:var(--t3)"></span>
+        <button class="btn-sm" id="toggle-log">Log</button>
+        <button class="btn-sm" id="refresh-btn">↻ Refresh</button>
+        <button class="btn-sm" id="logout-btn">Logout</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="main">
+    <div class="stats-grid">
+      <div class="stat-card">
+        <div class="stat-label">Total Filings</div>
+        <div class="stat-value" id="s-total">—</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-label">Companies w/ Filings</div>
+        <div class="stat-value" id="s-active">—</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-label">Date Range</div>
+        <div class="stat-value" id="s-range" style="font-size:16px">—</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-label">Watchlist</div>
+        <div class="stat-value"><span id="wl-count">30</span></div>
+      </div>
+    </div>
+
+    <div class="log-panel" id="log-panel"></div>
+    <div class="progress-bar" id="progress-bar" style="display:none"><div class="progress-fill" id="progress-fill" style="width:0%"></div></div>
+
+    <div class="controls">
+      <div class="search-wrap">
+        <span class="search-icon">⌕</span>
+        <input type="text" id="search" class="search-input" placeholder="Search company or filing...">
+      </div>
+      <select id="type-filter" class="select-input">
+        <option value="ALL">All Types</option>
+        <option value="A">Annual/Quarterly</option>
+        <option value="B">Major Events</option>
+        <option value="C">Issuance/Securities</option>
+        <option value="D">Equity/Ownership</option>
+        <option value="F">Audit</option>
+        <option value="I">Governance</option>
+        <option value="H">Contracts</option>
+        <option value="J">IR</option>
+      </select>
+      <select id="date-range" class="select-input">
+        <option value="7">Last 7 days</option>
+        <option value="30" selected>Last 30 days</option>
+        <option value="90">Last 90 days</option>
+        <option value="180">Last 180 days</option>
+        <option value="365">Last 365 days</option>
+      </select>
+    </div>
+
+    <div class="content-grid">
+      <div class="filing-list" id="filing-list">
+        <div class="spinner-wrap"><div class="spinner"></div></div>
+      </div>
+      <div class="sidebar">
+        <div id="detail-panel"></div>
+        <div class="wl-panel">
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
+            <div class="detail-label">Watchlist</div>
+            <span style="font-size:10px;color:var(--t3);font-family:var(--mono)">click to filter</span>
+          </div>
+          <div class="wl-scroll" id="wl-container"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+// ══════════════════ CONFIG ══════════════════
+const ACCESS_PASSWORD = "dart2026";
+const PROXY_BASE = window.location.origin;
+
+// WATCHLIST with hardcoded DART corp_codes (8-digit internal IDs)
+// These were extracted from CORPCODE.xml on 2026-02-25
+const WATCHLIST = [
+  { name: "KL-Net",                  sym: "039420", corp: "00246620" },
+  { name: "Kukbo Design",            sym: "066620", corp: "00253985" },
+  { name: "WinsTechnet",             sym: "136540", corp: "00868705" },
+  { name: "Dong A Eltek",            sym: "088130", corp: "00489243" },
+  { name: "Samyung Trading",         sym: "002810", corp: "00127167" },
+  { name: "SamyangTongsang",         sym: "002170", corp: "00127042" },
+  { name: "esang Networks",          sym: "080010", corp: "00454399" },
+  { name: "Muhak",                   sym: "033920", corp: "00121543" },
+  { name: "Tovis",                   sym: "051360", corp: "00390365" },
+  { name: "Plantynet",               sym: "075130", corp: "00490179" },
+  { name: "Korea Alcohol Industrial",sym: "017890", corp: "00158565" },
+  { name: "Inbody",                  sym: "041830", corp: "00269922" },
+  { name: "Total Soft Bank",         sym: "045340", corp: "00355089" },
+  { name: "MCNEX",                   sym: "097520", corp: "00564562" },
+  { name: "Nice Info & Telecom",     sym: "036800", corp: "00264945" },
+  { name: "Boditech Med",            sym: "206640", corp: "01046708" },
+  { name: "Komelon",                 sym: "049430", corp: "00152783" },
+  { name: "Golfzon",                 sym: "215000", corp: "01067516" },
+  { name: "INFINITT Healthcare",     sym: "071200", corp: "00435969" },
+  { name: "Flitto",                  sym: "300080", corp: "01237434" },
+  { name: "Eusu Holdings",           sym: "000700", corp: "00163691" },
+  { name: "i-components",            sym: "059100", corp: "00407285" },
+  { name: "Makus",                   sym: "093520", corp: "00596677" },
+  { name: "BBC Co",                  sym: "318410", corp: "01153105" },
+  { name: "T&L",                     sym: "340570", corp: "00608440" },
+  { name: "Infovine",                sym: "115310", corp: "00491415" },
+  { name: "Gaeasoft",                sym: "051160", corp: "00389110" },
+  { name: "Dreamus",                 sym: "060570", corp: "00364467" },
+  { name: "Bit Computer",            sym: "032850", corp: "00231707" },
+  { name: "Dongyang E&P",            sym: "079960", corp: "00178790" },
+];
+
+const TYPES = {
+  A:{l:"Annual",c:"#5B9AFF"}, B:{l:"Major",c:"#FF6B6B"},
+  C:{l:"Issuance",c:"#FFAB40"}, D:{l:"Equity",c:"#A78BFA"},
+  E:{l:"Other",c:"#6B7280"}, F:{l:"Audit",c:"#4ADE80"},
+  G:{l:"Funds",c:"#F472B6"}, H:{l:"Contract",c:"#FB923C"},
+  I:{l:"Governance",c:"#22D3EE"}, J:{l:"IR",c:"#84CC16"},
+};
+
+// Korean → English translation for common DART filing terms
+const KO_EN = [
+  [/\[?정정\]?/g,"[Amended] "],[/\(기재정정\)/g,"(Correction)"],[/첨부추가/g,"(Added Attachment)"],
+  // Report types
+  [/사업보고서/g,"Annual Report"],[/반기보고서/g,"Semi-Annual Report"],[/분기보고서/g,"Quarterly Report"],
+  [/감사보고서/g,"Audit Report"],[/검토보고서/g,"Review Report"],
+  // Major disclosures
+  [/주요사항보고서/g,"Major Event Report"],[/임원ㆍ주요주주특정증권등소유상황보고서/g,"Insider Ownership Report"],
+  [/임원·주요주주특정증권등소유상황보고서/g,"Insider Ownership Report"],
+  [/최대주주등소유주식변동신고서/g,"Major Shareholder Change Report"],
+  [/최대주주등소유주식변동/g,"Major Shareholder Change"],
+  // Governance
+  [/주주총회소집공고/g,"Shareholder Meeting Notice"],[/주주총회소집결의/g,"Shareholder Meeting Resolution"],
+  [/주주총회/g,"Shareholder Meeting"],[/이사회결의/g,"Board Resolution"],
+  [/임원의변경/g,"Change of Officers"],[/대표이사변경/g,"CEO Change"],
+  // Financial
+  [/연결재무제표/g,"Consolidated Financial Stmt"],[/재무제표/g,"Financial Statements"],
+  [/영업\(잠정\)실적/g,"Prelim. Earnings"],[/매출액또는손익구조/g,"Revenue/P&L Structure"],
+  [/매출액/g,"Revenue"],[/자기주식취득/g,"Treasury Stock Acquisition"],
+  [/자기주식처분/g,"Treasury Stock Disposal"],[/자기주식/g,"Treasury Stock"],
+  [/유상증자결정/g,"Capital Increase Decision"],[/유상증자/g,"Capital Increase"],
+  [/전환사채권발행결정/g,"CB Issuance Decision"],[/전환사채/g,"Convertible Bond"],
+  [/신주인수권부사채/g,"Bond w/ Warrants"],[/신주인수권/g,"Warrants"],
+  [/전환가액의조정/g,"Conversion Price Adj."],[/전환가액/g,"Conversion Price"],
+  [/배당/g,"Dividend"],[/자본금/g,"Capital"],
+  // Ownership
+  [/최대주주/g,"Largest Shareholder"],[/주요주주/g,"Major Shareholder"],
+  [/특수관계인/g,"Related Party"],[/소유주식/g,"Share Ownership"],
+  // Events & contracts
+  [/타법인주식및출자증권취득결정/g,"Decision to Acquire Shares"],
+  [/타법인주식및출자증권처분결정/g,"Decision to Dispose Shares"],
+  [/단일판매ㆍ공급계약체결/g,"Sales/Supply Contract"],[/단일판매·공급계약체결/g,"Sales/Supply Contract"],
+  [/합병등종료보고서/g,"Merger Completion Report"],[/합병/g,"Merger"],
+  [/분할/g,"Spin-off"],[/해산/g,"Dissolution"],[/소송/g,"Litigation"],
+  [/계약체결/g,"Contract Signed"],[/공급계약/g,"Supply Agreement"],[/계약/g,"Contract"],
+  [/특허/g,"Patent"],
+  // Other
+  [/증권신고서/g,"Securities Registration"],[/투자설명서/g,"Prospectus"],
+  [/기업설명회\(IR\)/g,"IR Presentation"],[/기업설명회/g,"IR Presentation"],
+  [/공시대상기업집단현황/g,"Large Biz Group Status"],
+  [/지분증권/g,"Equity Securities"],[/채무증권/g,"Debt Securities"],
+  [/결산실적공시/g,"Earnings Disclosure"],[/결산/g,"Settlement"],
+  [/변동/g,"Change"],[/신고서/g,"Report"],[/보고서/g,"Report"],
+  [/결정/g,"Decision"],[/공시/g,"Disclosure"],
+  [/의\s?건/g," Item"],[/제출/g,"Filed"],
+];
+
+function translateTitle(title) {
+  if (!title) return "";
+  let t = title;
+  for (const [re, en] of KO_EN) t = t.replace(re, en);
+  return t;
+}
+
+// Smart badge from Korean report name
+function smartBadge(f) {
+  const nm = f.report_nm || "";
+  if (/사업보고서|반기보고서|분기보고서/.test(nm)) return badge("A");
+  if (/감사보고서|검토보고서/.test(nm)) return badge("F");
+  if (/주요사항|소송|합병|분할|해산/.test(nm)) return badge("B");
+  if (/증권신고서|투자설명서|유상증자|전환사채|신주인수권/.test(nm)) return badge("C");
+  if (/자기주식|최대주주|주요주주|소유주식|소유상황/.test(nm)) return badge("D");
+  if (/주주총회|이사회|배당|임원/.test(nm)) return badge("I");
+  if (/계약|공급|판매/.test(nm)) return badge("H");
+  if (/기업설명회|IR/.test(nm)) return badge("J");
+  return badge(f.pblntf_ty || "E");
+}
+
+function matchesTypeFilter(f, filter) {
+  if (filter === "ALL") return true;
+  const nm = f.report_nm || "";
+  if (filter === "A") return /사업보고서|반기보고서|분기보고서/.test(nm);
+  if (filter === "B") return /주요사항|소송|합병|분할|해산/.test(nm);
+  if (filter === "C") return /증권신고서|투자설명서|유상증자|전환사채|신주인수권/.test(nm);
+  if (filter === "D") return /자기주식|최대주주|주요주주|소유주식|소유상황/.test(nm);
+  if (filter === "F") return /감사보고서|검토보고서/.test(nm);
+  if (filter === "I") return /주주총회|이사회|배당|임원/.test(nm);
+  if (filter === "H") return /계약|공급|판매/.test(nm);
+  if (filter === "J") return /기업설명회|IR/.test(nm);
+  return f.pblntf_ty === filter;
+}
+
+// Build lookups: stock_code → name, corp_code → name, corp_code → stock_code
+const SYM_TO_NAME = {};
+const CORP_TO_NAME = {};
+const CORP_TO_SYM = {};
+WATCHLIST.forEach(w => {
+  const sym6 = w.sym.padStart(6, "0");
+  SYM_TO_NAME[sym6] = w.name;
+  CORP_TO_NAME[w.corp] = w.name;
+  CORP_TO_SYM[w.corp] = sym6;
+});
+
+// ══════════════════ STATE ══════════════════
+let filings = [];
+let selected = null;
+let search = "";
+let typeFilter = "ALL";
+let dateRange = 30;
+let isLive = false;
+let errorMsg = null;
+
+// ══════════════════ AUTH ══════════════════
+const SK = "dart_auth_v2";
+function checkAuth() { return sessionStorage.getItem(SK) === "ok"; }
+function doAuth(pw) { if(pw===ACCESS_PASSWORD){sessionStorage.setItem(SK,"ok");return true;} return false; }
+
+// ══════════════════ UTILS ══════════════════
+const fmtDate = d => d ? `${d.slice(0,4)}-${d.slice(4,6)}-${d.slice(6,8)}` : "";
+const today = () => new Date().toISOString().slice(0,10).replace(/-/g,"");
+const daysAgo = n => { const d=new Date(); d.setDate(d.getDate()-n); return d.toISOString().slice(0,10).replace(/-/g,""); };
+const badge = t => { const x=TYPES[t]||TYPES.E; return `<span class="badge" style="background:${x.c}">${x.l}</span>`; };
+
+function log(msg, cls="") {
+  const p = document.getElementById("log-panel");
+  p.innerHTML += `<div class="log-line ${cls}">[${new Date().toLocaleTimeString()}] ${msg}</div>`;
+  p.scrollTop = p.scrollHeight;
+}
+
+function showProgress(pct) {
+  const bar = document.getElementById("progress-bar");
+  const fill = document.getElementById("progress-fill");
+  if (pct <= 0) { bar.style.display = "none"; return; }
+  bar.style.display = "block";
+  fill.style.width = Math.min(pct, 100) + "%";
+}
+
+// ══════════════════ FETCH ══════════════════
+async function fetchFilings() {
+  document.getElementById("filing-list").innerHTML = '<div class="spinner-wrap"><div class="spinner"></div></div>';
+  errorMsg = null;
+  const bgn = daysAgo(dateRange);
+  const end = today();
+
+  // Build comma-separated corp_codes
+  const corpCodes = WATCHLIST.map(w => w.corp).join(",");
+
+  log(`Fetching filings for ${WATCHLIST.length} companies, ${fmtDate(bgn)} to ${fmtDate(end)}...`, "log-info");
+  log(`Using per-company batch query (corp_code based)`, "log-info");
+  showProgress(10);
+
+  try {
+    const url = `${PROXY_BASE}/.netlify/functions/dart-proxy?action=batch&corp_codes=${corpCodes}&bgn_de=${bgn}&end_de=${end}`;
+    const r = await fetch(url);
+    showProgress(80);
+
+    if (!r.ok) throw new Error("Proxy returned HTTP " + r.status);
+    const data = await r.json();
+
+    if (data.error) throw new Error(data.error);
+
+    log(`Queried ${data.companies_queried} companies individually via corp_code`, "log-ok");
+    log(`Found ${data.total} total filings`, "log-ok");
+
+    if (data.errors && data.errors.length > 0) {
+      data.errors.forEach(e => log(`Warning: ${e}`, "log-err"));
+    }
+
+    // Enrich filings with watchlist names
+    // DART returns corp_code in each filing — use our lookup
+    filings = (data.filings || []).map(f => {
+      const sc = (f.stock_code || "").trim();
+      const cc = (f.corp_code || "").trim();
+      const wlName = SYM_TO_NAME[sc] || CORP_TO_NAME[cc] || f.corp_name;
+      const wlSym = sc || CORP_TO_SYM[cc] || "";
+      return { ...f, wl_name: wlName, wl_sym: wlSym };
+    });
+
+    isLive = true;
+    showProgress(100);
+    setTimeout(() => showProgress(0), 500);
+    log(`Dashboard loaded: ${filings.length} filings displayed`, "log-ok");
+
+  } catch (e) {
+    console.error("Fetch error:", e);
+    errorMsg = e.message;
+    filings = [];
+    isLive = false;
+    showProgress(0);
+    log("ERROR: " + e.message, "log-err");
+  }
+
+  render();
+}
+
+// ══════════════════ RENDER ══════════════════
+function render() {
+  const dot = document.getElementById("status-dot");
+  dot.style.background = isLive ? "var(--green)" : errorMsg ? "var(--red)" : "var(--t3)";
+
+  // Stats
+  const uniqueCompanies = new Set(filings.map(f => f.wl_name || f.corp_name)).size;
+  document.getElementById("s-total").textContent = filings.length || "—";
+  document.getElementById("s-active").textContent = uniqueCompanies || "—";
+  document.getElementById("s-range").textContent = `${fmtDate(daysAgo(dateRange))} → ${fmtDate(today())}`;
+  document.getElementById("s-watchlist").textContent = WATCHLIST.length;
+  document.getElementById("wl-count").textContent = WATCHLIST.length;
+
+  // Filter
+  const list = document.getElementById("filing-list");
+  let html = "";
+
+  if (errorMsg) {
+    html += `<div class="error-box">⚠ ${errorMsg}</div>`;
+  }
+
+  const filtered = filings.filter(f => {
+    const s = search.toLowerCase();
+    const matchS = !s ||
+      (f.wl_name || "").toLowerCase().includes(s) ||
+      (f.corp_name || "").toLowerCase().includes(s) ||
+      (f.report_nm || "").toLowerCase().includes(s) ||
+      translateTitle(f.report_nm).toLowerCase().includes(s) ||
+      (f.stock_code || "").includes(s) ||
+      (f.wl_sym || "").includes(s);
+    const matchT = matchesTypeFilter(f, typeFilter);
+    return matchS && matchT;
+  });
+
+  if (filtered.length === 0 && !errorMsg) {
+    html += '<div style="text-align:center;padding:48px;color:var(--t3)">No filings found for this date range</div>';
+  }
+
+  html += filtered.map((f, i) => {
+    const sel = selected && selected.rcept_no === f.rcept_no;
+    return `<div class="filing-item ${sel?'selected':''}" data-idx="${i}" style="animation:fadeUp .3s ease ${Math.min(i,20)*0.02}s both">
+      <div class="filing-date">${fmtDate(f.rcept_dt)}</div>
+      <div class="filing-content">
+        <div class="filing-header">
+          <span class="filing-company">${f.wl_name||f.corp_name}</span>
+          <span class="filing-symbol">${f.wl_sym||f.stock_code||""}</span>
+          ${smartBadge(f)}
+        </div>
+        <div class="filing-title" title="${(f.report_nm||'').replace(/"/g,'&quot;')}">${translateTitle(f.report_nm)}</div>
+      </div>
+    </div>`;
+  }).join("");
+  html += `<div class="filing-count">${filtered.length} filing${filtered.length!==1?"s":""}</div>`;
+  list.innerHTML = html;
+
+  // Click handlers
+  list.querySelectorAll(".filing-item").forEach(el => {
+    el.addEventListener("click", () => {
+      selected = filtered[parseInt(el.dataset.idx)];
+      render();
+    });
+  });
+
+  renderDetail();
+  renderWatchlist();
+}
+
+function renderDetail() {
+  const p = document.getElementById("detail-panel");
+  if (!selected) {
+    p.innerHTML = `<div class="detail-panel"><div class="empty-detail"><div style="font-size:32px;opacity:.3;margin-bottom:12px">📋</div><div style="font-size:13px;color:var(--t3)">Select a filing to view details</div></div></div>`;
+    return;
+  }
+  const f = selected;
+  p.innerHTML = `<div class="detail-panel" style="animation:fadeUp .25s ease">
+    <div style="display:flex;justify-content:space-between;margin-bottom:20px">
+      <div class="detail-label">Filing Detail</div>
+      <span id="close-detail" style="color:var(--t3);font-size:18px;cursor:pointer">×</span>
+    </div>
+    <div class="detail-company">${f.wl_name||f.corp_name}</div>
+    <div class="detail-symbol">${f.wl_sym||f.stock_code||""} · ${f.corp_name||""}</div>
+    <div class="detail-title" title="${(f.report_nm||'').replace(/"/g,'&quot;')}">${translateTitle(f.report_nm)}</div>
+    <div class="detail-row" style="color:var(--t3);font-size:11px;font-style:italic;border-top:none;padding-top:0">${f.report_nm||""}</div>
+    <div class="detail-row"><span class="detail-row-label">Type</span><span>${smartBadge(f)}</span></div>
+    <div class="detail-row"><span class="detail-row-label">Filed</span><span class="detail-row-value">${fmtDate(f.rcept_dt)}</span></div>
+    <div class="detail-row"><span class="detail-row-label">Receipt No</span><span class="detail-row-value">${f.rcept_no||"—"}</span></div>
+    <div class="detail-row"><span class="detail-row-label">Filer</span><span class="detail-row-value">${f.flr_nm||"—"}</span></div>
+    <div class="detail-row"><span class="detail-row-label">Corp Code</span><span class="detail-row-value">${f.corp_code||"—"}</span></div>
+    <a class="btn-dart" href="https://dart.fss.or.kr/dsaf001/main.do?rcpNo=${f.rcept_no}" target="_blank" rel="noopener">View on DART (Korean) →</a>
+    <a class="btn-dart-secondary" href="https://englishdart.fss.or.kr/dsbh001/main.do?rcpNo=${f.rcept_no}" target="_blank" rel="noopener">Try English DART</a>
+  </div>`;
+  document.getElementById("close-detail").addEventListener("click", () => { selected=null; render(); });
+}
+
+function renderWatchlist() {
+  const c = document.getElementById("wl-container");
+  c.innerHTML = WATCHLIST.map(w => {
+    const sym6 = w.sym.padStart(6,"0");
+    const count = filings.filter(f =>
+      (f.stock_code||"").trim() === sym6 ||
+      (f.corp_code||"").trim() === w.corp
+    ).length;
+    return `<div class="wl-item" data-name="${w.name}">
+      <span style="color:var(--t2)">${w.name}</span>
+      <div class="wl-meta">
+        <span class="wl-code">${w.sym}</span>
+        ${count > 0 ? `<span class="wl-count">${count}</span>` : ""}
+      </div>
+    </div>`;
+  }).join("");
+  c.querySelectorAll(".wl-item").forEach(el => {
+    el.addEventListener("click", () => {
+      document.getElementById("search").value = el.dataset.name;
+      search = el.dataset.name;
+      render();
+    });
+  });
+}
+
+// ══════════════════ INIT ══════════════════
+document.addEventListener("DOMContentLoaded", () => {
+  const loginEl = document.getElementById("login");
+  const appEl = document.getElementById("app");
+
+  if (checkAuth()) { loginEl.classList.add("hidden"); appEl.classList.add("visible"); init(); return; }
+
+  const pw = document.getElementById("login-pw");
+  const btn = document.getElementById("login-btn");
+  const err = document.getElementById("login-error");
+  function tryLogin() {
+    if (doAuth(pw.value)) { loginEl.classList.add("hidden"); appEl.classList.add("visible"); init(); }
+    else { err.textContent = "Invalid password."; pw.value = ""; pw.focus(); }
+  }
+  btn.addEventListener("click", tryLogin);
+  pw.addEventListener("keydown", e => { if(e.key==="Enter") tryLogin(); });
+});
+
+function init() {
+  document.getElementById("search").addEventListener("input", e => { search=e.target.value; render(); });
+  document.getElementById("type-filter").addEventListener("change", e => { typeFilter=e.target.value; render(); });
+  document.getElementById("date-range").addEventListener("change", e => { dateRange=parseInt(e.target.value); fetchFilings(); });
+  document.getElementById("refresh-btn").addEventListener("click", fetchFilings);
+  document.getElementById("toggle-log").addEventListener("click", () => {
+    document.getElementById("log-panel").classList.toggle("show");
+  });
+  document.getElementById("logout-btn").addEventListener("click", () => { sessionStorage.removeItem(SK); location.reload(); });
+  renderDetail();
+  renderWatchlist();
+  fetchFilings();
+}
+</script>
+</body>
+</html>
