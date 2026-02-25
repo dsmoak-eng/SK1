@@ -1,0 +1,507 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>DART Filing Alerts</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;0,9..40,700;1,9..40,400&family=JetBrains+Mono:wght@400;500&family=Noto+Sans+KR:wght@400;500;700&display=swap" rel="stylesheet">
+<style>
+:root {
+  --bg: #06080C; --surface: #0D1017; --raised: #12151C; --hover: #171B24;
+  --border: #1C2030; --border-gold: rgba(212,175,90,0.15);
+  --gold: #D4AF5A; --gold-b: #E8C872; --gold-d: #A8883E;
+  --t1: #ECEDEE; --t2: #9BA1AD; --t3: #5A6070;
+  --blue: #5B9AFF; --red: #FF6B6B; --amber: #FFAB40; --violet: #A78BFA;
+  --green: #4ADE80; --cyan: #22D3EE; --pink: #F472B6; --orange: #FB923C;
+  --mono: 'JetBrains Mono', monospace; --sans: 'DM Sans', 'Noto Sans KR', sans-serif;
+}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+body{font-family:var(--sans);background:var(--bg);color:var(--t1);min-height:100vh}
+::-webkit-scrollbar{width:5px}::-webkit-scrollbar-thumb{background:#2A2E38;border-radius:3px}
+@keyframes spin{to{transform:rotate(360deg)}}
+@keyframes fadeUp{from{opacity:0;transform:translateY(12px)}to{opacity:1;transform:translateY(0)}}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.4}}
+@keyframes glow{0%,100%{box-shadow:0 0 20px rgba(212,175,90,.08)}50%{box-shadow:0 0 40px rgba(212,175,90,.15)}}
+@keyframes loginReveal{from{opacity:0;transform:scale(.96) translateY(20px)}to{opacity:1;transform:scale(1) translateY(0)}}
+
+/* Login */
+#login{position:fixed;inset:0;z-index:9999;display:flex;align-items:center;justify-content:center;background:var(--bg)}
+#login.hidden{display:none}
+.login-box{width:380px;padding:48px 40px;background:var(--surface);border:1px solid var(--border);border-radius:16px;animation:loginReveal .5s cubic-bezier(.16,1,.3,1)}
+.login-logo{width:48px;height:48px;border-radius:12px;background:linear-gradient(135deg,var(--gold),var(--gold-d));display:flex;align-items:center;justify-content:center;font-size:24px;font-weight:800;color:var(--bg);margin:0 auto 24px;animation:glow 3s infinite}
+.login-title{text-align:center;font-size:20px;font-weight:700;margin-bottom:6px}
+.login-sub{text-align:center;font-size:12px;color:var(--t3);margin-bottom:32px;font-family:var(--mono)}
+.login-label{display:block;font-size:10px;font-weight:600;color:var(--t3);text-transform:uppercase;letter-spacing:1px;margin-bottom:8px}
+.login-input{width:100%;padding:12px 16px;border-radius:8px;border:1px solid var(--border);background:var(--raised);color:var(--t1);font-size:14px;font-family:var(--mono);outline:none}
+.login-input:focus{border-color:var(--gold-d)}
+.login-btn{width:100%;padding:13px;border:none;border-radius:8px;background:linear-gradient(135deg,var(--gold),var(--gold-d));color:var(--bg);font-size:14px;font-weight:700;font-family:var(--sans);cursor:pointer;margin-top:24px}
+.login-btn:hover{transform:translateY(-1px);box-shadow:0 4px 20px rgba(212,175,90,.25)}
+.login-error{color:var(--red);font-size:12px;text-align:center;margin-top:14px;min-height:18px}
+
+/* App */
+#app{display:none}#app.visible{display:block}
+.header{position:sticky;top:0;z-index:100;border-bottom:1px solid var(--border);background:rgba(13,16,23,.97);backdrop-filter:blur(12px);padding:18px 32px}
+.header-inner{display:flex;align-items:center;justify-content:space-between;max-width:1440px;margin:0 auto}
+.header-brand{display:flex;align-items:center;gap:14px}
+.header-icon{width:34px;height:34px;border-radius:8px;background:linear-gradient(135deg,var(--gold),var(--gold-d));display:flex;align-items:center;justify-content:center;font-size:17px;font-weight:800;color:var(--bg)}
+.header-title{font-size:17px;font-weight:700}
+.header-subtitle{font-size:10px;color:var(--t3);font-family:var(--mono)}
+.header-actions{display:flex;align-items:center;gap:12px}
+.status-dot{width:6px;height:6px;border-radius:50%;animation:pulse 2s infinite}
+.btn-sm{padding:6px 14px;border-radius:6px;border:1px solid var(--border);background:var(--raised);color:var(--t2);font-size:12px;font-weight:500;cursor:pointer;font-family:var(--sans);transition:all .15s}
+.btn-sm:hover{background:var(--hover);color:var(--gold-b);border-color:var(--border-gold)}
+.main{max-width:1440px;margin:0 auto;padding:24px 32px}
+.stats-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin-bottom:24px}
+.stat-card{background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:16px 20px}
+.stat-label{font-size:10px;font-weight:600;color:var(--t3);text-transform:uppercase;letter-spacing:1px;margin-bottom:6px}
+.stat-value{font-size:28px;font-weight:700;font-family:var(--mono);letter-spacing:-1px}
+.controls{display:flex;gap:12px;margin-bottom:20px;flex-wrap:wrap;align-items:center}
+.search-wrap{position:relative;flex:1 1 280px}
+.search-icon{position:absolute;left:12px;top:50%;transform:translateY(-50%);color:var(--t3);font-size:14px;pointer-events:none}
+.search-input{width:100%;padding:10px 12px 10px 34px;border-radius:8px;border:1px solid var(--border);background:var(--surface);color:var(--t1);font-size:13px;font-family:var(--sans);outline:none}
+.search-input:focus{border-color:var(--gold-d)}
+.select-input{padding:10px 14px;border-radius:8px;border:1px solid var(--border);background:var(--surface);color:var(--t1);font-size:13px;font-family:var(--sans);outline:none;cursor:pointer}
+.content-grid{display:flex;gap:20px}
+.filing-list{flex:1;min-width:0}
+.sidebar{width:360px;flex-shrink:0;position:sticky;top:80px;align-self:flex-start}
+.filing-item{display:flex;align-items:flex-start;gap:14px;padding:14px 18px;border-radius:8px;border:1px solid transparent;cursor:pointer;transition:all .15s}
+.filing-item:hover{background:var(--surface)}
+.filing-item.selected{background:var(--raised);border-color:var(--border-gold)}
+.filing-date{min-width:72px;font-family:var(--mono);font-size:11px;color:var(--t3);padding-top:2px}
+.filing-content{flex:1;min-width:0}
+.filing-header{display:flex;align-items:center;gap:8px;margin-bottom:4px;flex-wrap:wrap}
+.filing-company{font-size:13px;font-weight:600;color:var(--gold-b)}
+.filing-symbol{font-size:10px;color:var(--t3);font-family:var(--mono)}
+.filing-title{font-size:13px;color:var(--t2);line-height:1.4;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.filing-count{text-align:center;padding:16px;color:var(--t3);font-size:11px;font-family:var(--mono)}
+.badge{display:inline-block;padding:2px 8px;border-radius:4px;font-size:10px;font-weight:700;letter-spacing:.5px;text-transform:uppercase;color:#fff}
+.detail-panel{background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:24px}
+.detail-label{font-size:10px;font-weight:600;color:var(--t3);text-transform:uppercase;letter-spacing:1px}
+.detail-company{font-size:18px;font-weight:700;color:var(--gold-b);margin-bottom:4px}
+.detail-symbol{font-size:11px;color:var(--t3);font-family:var(--mono);margin-bottom:20px}
+.detail-title{font-size:14px;color:#D4D4D8;line-height:1.6;margin-bottom:20px;word-break:break-word}
+.detail-row{display:flex;justify-content:space-between;align-items:center;padding:10px 0;border-top:1px solid var(--border)}
+.detail-row-label{font-size:11px;color:var(--t3);text-transform:uppercase;letter-spacing:.5px}
+.detail-row-value{font-size:12px;color:var(--t2);font-family:var(--mono);text-align:right}
+.btn-dart{display:block;width:100%;margin-top:20px;padding:11px 0;border:none;border-radius:8px;background:linear-gradient(135deg,var(--gold),var(--gold-d));color:var(--bg);font-size:13px;font-weight:700;font-family:var(--sans);text-align:center;text-decoration:none;cursor:pointer}
+.btn-dart:hover{transform:translateY(-1px);box-shadow:0 4px 20px rgba(212,175,90,.25)}
+.btn-dart-secondary{display:block;width:100%;margin-top:8px;padding:9px 0;border:1px solid var(--border);border-radius:8px;background:transparent;color:var(--t2);font-size:12px;font-weight:500;font-family:var(--sans);text-align:center;text-decoration:none;cursor:pointer}
+.btn-dart-secondary:hover{border-color:var(--gold-d);color:var(--gold-b)}
+.empty-detail{text-align:center;padding:32px}
+.wl-panel{background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:20px;margin-top:14px}
+.wl-scroll{max-height:280px;overflow-y:auto}
+.wl-item{display:flex;align-items:center;justify-content:space-between;padding:7px 10px;border-radius:6px;cursor:pointer;font-size:12px;transition:background .15s}
+.wl-item:hover{background:var(--hover)}
+.wl-meta{display:flex;align-items:center;gap:8px}
+.wl-code{font-family:var(--mono);font-size:10px;color:var(--t3)}
+.wl-count{background:rgba(212,175,90,.12);color:var(--gold-b);font-size:10px;font-weight:700;padding:1px 6px;border-radius:4px;font-family:var(--mono)}
+.spinner-wrap{display:flex;flex-direction:column;align-items:center;justify-content:center;padding:40px;gap:12px}
+.spinner{width:32px;height:32px;border:3px solid rgba(255,255,255,.06);border-top:3px solid var(--gold);border-radius:50%;animation:spin .8s linear infinite}
+.spinner-text{font-size:12px;color:var(--t3);font-family:var(--mono)}
+.error-box{background:#1C1215;border:1px solid #7F1D1D;border-radius:10px;padding:20px;color:#FCA5A5;font-size:13px;margin-bottom:16px}
+.warn-box{background:#1C1A12;border:1px solid #7F6D1D;border-radius:10px;padding:14px 20px;color:#FCD34D;font-size:12px;margin-bottom:16px}
+.log-panel{background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:12px;margin-bottom:16px;font-family:var(--mono);font-size:11px;color:var(--t3);max-height:200px;overflow-y:auto;display:none}
+.log-panel.show{display:block}
+.log-panel .log-line{padding:2px 0;border-bottom:1px solid rgba(255,255,255,.03)}
+.log-panel .log-ok{color:var(--green)}
+.log-panel .log-err{color:var(--red)}
+.log-panel .log-info{color:var(--blue)}
+.log-panel .log-warn{color:var(--amber)}
+
+@media(max-width:900px){.stats-grid{grid-template-columns:repeat(2,1fr)}.content-grid{flex-direction:column}.sidebar{width:100%;position:static}.header{padding:14px 16px}.main{padding:16px}}
+</style>
+</head>
+<body>
+
+<div id="login">
+  <div class="login-box">
+    <div class="login-logo">D</div>
+    <div class="login-title">DART Filing Alerts</div>
+    <div class="login-sub">Korea FSS Electronic Disclosure</div>
+    <label class="login-label">Password</label>
+    <input type="password" id="login-pw" class="login-input" placeholder="Enter access password" autofocus>
+    <button id="login-btn" class="login-btn">Authenticate →</button>
+    <div id="login-error" class="login-error"></div>
+  </div>
+</div>
+
+<div id="app">
+  <div class="header">
+    <div class="header-inner">
+      <div class="header-brand">
+        <div class="header-icon">D</div>
+        <div>
+          <div class="header-title">DART Filing Alerts</div>
+          <div class="header-subtitle">Korea FSS Electronic Disclosure</div>
+        </div>
+      </div>
+      <div class="header-actions">
+        <div style="display:flex;align-items:center;gap:6px">
+          <div id="status-dot" class="status-dot" style="background:var(--amber)"></div>
+          <span id="status-text" style="font-size:11px;color:var(--t3);font-family:var(--mono)">LOADING</span>
+        </div>
+        <span id="last-refresh" style="font-size:10px;color:var(--t3);font-family:var(--mono)"></span>
+        <button id="refresh-btn" class="btn-sm">↻ Refresh</button>
+        <button id="toggle-log" class="btn-sm">Log</button>
+        <button id="logout-btn" class="btn-sm" style="color:var(--red)">Logout</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="main">
+    <div class="stats-grid">
+      <div class="stat-card"><div class="stat-label">Total Filings</div><div id="s-total" class="stat-value" style="color:var(--gold)">—</div></div>
+      <div class="stat-card"><div class="stat-label">Companies w/ Filings</div><div id="s-companies" class="stat-value" style="color:var(--blue)">—</div></div>
+      <div class="stat-card"><div class="stat-label">Watchlist Size</div><div id="s-watchlist" class="stat-value" style="color:var(--violet)">30</div></div>
+      <div class="stat-card"><div class="stat-label">Date Range</div><div id="s-range" class="stat-value" style="color:var(--green)">30d</div></div>
+    </div>
+
+    <div id="log-panel" class="log-panel"></div>
+
+    <div class="controls">
+      <div class="search-wrap">
+        <span class="search-icon">⌕</span>
+        <input type="text" id="search" class="search-input" placeholder="Search company or filing...">
+      </div>
+      <select id="type-filter" class="select-input">
+        <option value="ALL">All Types</option>
+        <option value="A">Annual/Periodic</option>
+        <option value="B">Major Events</option>
+        <option value="C">Issuance</option>
+        <option value="D">Equity</option>
+        <option value="E">Other</option>
+        <option value="F">External Audit</option>
+        <option value="G">Funds</option>
+        <option value="H">Asset-Backed</option>
+        <option value="I">Exchange</option>
+        <option value="J">Fair Trade</option>
+      </select>
+      <select id="date-range" class="select-input">
+        <option value="7">Past 7 days</option>
+        <option value="14">Past 14 days</option>
+        <option value="30" selected>Past 30 days</option>
+        <option value="90">Past 90 days</option>
+      </select>
+    </div>
+
+    <div class="content-grid">
+      <div class="filing-list" id="filing-list"></div>
+      <div class="sidebar">
+        <div id="detail-panel"></div>
+        <div class="wl-panel">
+          <div class="detail-label" style="margin-bottom:14px">Watchlist (<span id="wl-count">30</span>)</div>
+          <div class="wl-scroll" id="wl-container"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+// ══════════════════ CONFIG ══════════════════
+const ACCESS_PASSWORD = "dart2026";
+
+// Proxy base URL — uses same origin when deployed to Netlify
+const PROXY_BASE = window.location.origin;
+
+const WATCHLIST = [
+  { name: "KL-Net", sym: "039420" },
+  { name: "Kukbo Design", sym: "066620" },
+  { name: "WinsTechnet", sym: "136540" },
+  { name: "Dong A E&P", sym: "088130" },
+  { name: "Samyung Trading", sym: "002810" },
+  { name: "SamyangTongsang", sym: "002170" },
+  { name: "esang Networks", sym: "080010" },
+  { name: "Muhak", sym: "033920" },
+  { name: "Tovis", sym: "051360" },
+  { name: "Plantynet", sym: "075130" },
+  { name: "Korea Alcohol Industrial", sym: "017890" },
+  { name: "Inbody", sym: "041830" },
+  { name: "Total Soft Bank", sym: "045340" },
+  { name: "MCNEX", sym: "097520" },
+  { name: "Nice Info & Telecom", sym: "036800" },
+  { name: "Boditech Med", sym: "206640" },
+  { name: "Komelon", sym: "049430" },
+  { name: "Golfzon", sym: "215000" },
+  { name: "INFINITT Healthcare", sym: "071200" },
+  { name: "Flitto", sym: "300080" },
+  { name: "Eusu", sym: "000700" },
+  { name: "i-components", sym: "059100" },
+  { name: "Makus", sym: "093520" },
+  { name: "BBC Co", sym: "318410" },
+  { name: "T&L", sym: "340570" },
+  { name: "Infovine", sym: "115310" },
+  { name: "Gaeasoft", sym: "051160" },
+  { name: "Dreamus", sym: "060570" },
+  { name: "Bit Computer", sym: "032850" },
+  { name: "Dongyang E&P", sym: "079960" },
+];
+
+const TYPES = {
+  A:{l:"Annual/Periodic",c:"#5B9AFF"}, B:{l:"Major Events",c:"#FF6B6B"},
+  C:{l:"Issuance",c:"#FFAB40"}, D:{l:"Equity",c:"#A78BFA"},
+  E:{l:"Other",c:"#6B7280"}, F:{l:"External Audit",c:"#4ADE80"},
+  G:{l:"Funds",c:"#F472B6"}, H:{l:"Asset-Backed",c:"#FB923C"},
+  I:{l:"Exchange",c:"#22D3EE"}, J:{l:"Fair Trade",c:"#84CC16"},
+};
+
+// Build sym→name lookup
+const SYM_TO_NAME = {};
+WATCHLIST.forEach(w => { SYM_TO_NAME[w.sym.padStart(6,"0")] = w.name; });
+
+// ══════════════════ STATE ══════════════════
+let filings = [];
+let selected = null;
+let search = "";
+let typeFilter = "ALL";
+let dateRange = 30;
+let isLive = false;
+let errorMsg = null;
+let warnMsg = null;
+
+// ══════════════════ AUTH ══════════════════
+const SK = "dart_auth_v2";
+function checkAuth() { return sessionStorage.getItem(SK) === "ok"; }
+function doAuth(pw) { if(pw===ACCESS_PASSWORD){sessionStorage.setItem(SK,"ok");return true;} return false; }
+
+// ══════════════════ UTILS ══════════════════
+const fmtDate = d => d ? `${d.slice(0,4)}-${d.slice(4,6)}-${d.slice(6,8)}` : "";
+const today = () => new Date().toISOString().slice(0,10).replace(/-/g,"");
+const daysAgo = n => { const d=new Date(); d.setDate(d.getDate()-n); return d.toISOString().slice(0,10).replace(/-/g,""); };
+const badge = t => { const x=TYPES[t]||TYPES.E; return `<span class="badge" style="background:${x.c}">${x.l}</span>`; };
+
+function log(msg, cls="") {
+  const p = document.getElementById("log-panel");
+  p.innerHTML += `<div class="log-line ${cls}">[${new Date().toLocaleTimeString()}] ${msg}</div>`;
+  p.scrollTop = p.scrollHeight;
+}
+
+// ══════════════════ FETCH ══════════════════
+async function fetchFilings() {
+  const list = document.getElementById("filing-list");
+  list.innerHTML = '<div class="spinner-wrap"><div class="spinner"></div><div class="spinner-text">Fetching filings for ' + WATCHLIST.length + ' companies...</div></div>';
+  errorMsg = null;
+  warnMsg = null;
+  selected = null;
+  const bgn = daysAgo(dateRange);
+  const end = today();
+  const stockCodes = WATCHLIST.map(w => w.sym).join(",");
+
+  log(`Fetching filings for ${WATCHLIST.length} companies, ${fmtDate(bgn)} to ${fmtDate(end)}...`, "log-info");
+
+  try {
+    // First, check proxy health
+    log("Pinging proxy...", "log-info");
+    const pingUrl = `${PROXY_BASE}/.netlify/functions/dart-proxy?action=ping`;
+    const pingR = await fetch(pingUrl);
+    if (!pingR.ok) {
+      throw new Error(`Proxy not reachable (HTTP ${pingR.status}). Is the Netlify function deployed?`);
+    }
+    const pingData = await pingR.json();
+    log(`Proxy OK: ${pingData.message}`, "log-ok");
+
+    // Now fetch batch filings
+    log("Calling proxy: action=batch (corp_code resolution + per-company fetch)", "log-info");
+    list.innerHTML = '<div class="spinner-wrap"><div class="spinner"></div><div class="spinner-text">Resolving company codes & fetching filings...</div></div>';
+
+    const url = `${PROXY_BASE}/.netlify/functions/dart-proxy?action=batch&stock_codes=${stockCodes}&bgn_de=${bgn}&end_de=${end}`;
+    const r = await fetch(url);
+
+    if (!r.ok) {
+      const errText = await r.text();
+      let errDetail = "";
+      try { errDetail = JSON.parse(errText).error || errText; } catch { errDetail = errText; }
+      throw new Error(`Proxy returned HTTP ${r.status}: ${errDetail}`);
+    }
+
+    const data = await r.json();
+
+    if (data.error) throw new Error(data.error);
+
+    log(`Resolved ${data.resolved_count}/${WATCHLIST.length} company codes`, "log-ok");
+
+    if (data.unresolved_count > 0) {
+      const unresolvedNames = data.unresolved_codes.map(code => {
+        const name = SYM_TO_NAME[code] || code;
+        return `${name} (${code})`;
+      }).join(", ");
+      warnMsg = `${data.unresolved_count} stock code(s) could not be resolved: ${unresolvedNames}`;
+      log(`WARNING: ${warnMsg}`, "log-warn");
+    }
+
+    log(`Found ${data.total} total filings from DART`, "log-ok");
+
+    // Enrich filings with watchlist names
+    filings = (data.filings || []).map(f => {
+      const sc = (f.stock_code || "").trim();
+      return { ...f, wl_name: SYM_TO_NAME[sc] || f.corp_name, wl_sym: sc };
+    });
+
+    isLive = true;
+    log(`Dashboard loaded: ${filings.length} filings displayed`, "log-ok");
+
+  } catch (e) {
+    console.error("Fetch error:", e);
+    errorMsg = e.message;
+    filings = [];
+    isLive = false;
+    log("ERROR: " + e.message, "log-err");
+  }
+
+  render();
+}
+
+// ══════════════════ RENDER ══════════════════
+function render() {
+  // Status
+  const dot = document.getElementById("status-dot");
+  const txt = document.getElementById("status-text");
+  dot.style.background = isLive ? "var(--green)" : errorMsg ? "var(--red)" : "var(--amber)";
+  txt.textContent = isLive ? "LIVE" : errorMsg ? "ERROR" : "LOADING";
+  document.getElementById("last-refresh").textContent = "Updated " + new Date().toLocaleTimeString();
+
+  // Stats
+  const companies = new Set(filings.map(f => f.wl_sym).filter(Boolean));
+  document.getElementById("s-total").textContent = filings.length;
+  document.getElementById("s-companies").textContent = companies.size;
+  document.getElementById("s-watchlist").textContent = WATCHLIST.length;
+  document.getElementById("s-range").textContent = dateRange + "d";
+  document.getElementById("wl-count").textContent = WATCHLIST.length;
+
+  // List
+  const list = document.getElementById("filing-list");
+  let html = "";
+
+  if (errorMsg) {
+    html += `<div class="error-box"><strong>Error:</strong> ${errorMsg}<br><small style="color:#71717A;margin-top:6px;display:block">Check that your Netlify proxy is deployed. Click "Log" for details. Open browser console (F12) for additional info.</small></div>`;
+  }
+
+  if (warnMsg) {
+    html += `<div class="warn-box">${warnMsg}</div>`;
+  }
+
+  // Filter
+  const filtered = filings.filter(f => {
+    const s = search.toLowerCase();
+    const matchS = !s || (f.corp_name||"").toLowerCase().includes(s) || (f.wl_name||"").toLowerCase().includes(s) || (f.report_nm||"").toLowerCase().includes(s) || (f.stock_code||"").includes(s);
+    const matchT = typeFilter === "ALL" || f.pblntf_ty === typeFilter;
+    return matchS && matchT;
+  });
+
+  if (filtered.length === 0 && !errorMsg) {
+    html += '<div style="text-align:center;padding:48px;color:var(--t3)">No filings found for this date range</div>';
+  }
+
+  html += filtered.map((f, i) => {
+    const sel = selected && selected.rcept_no === f.rcept_no;
+    return `<div class="filing-item ${sel?'selected':''}" data-idx="${i}" style="animation:fadeUp .3s ease ${Math.min(i,20)*0.02}s both">
+      <div class="filing-date">${fmtDate(f.rcept_dt)}</div>
+      <div class="filing-content">
+        <div class="filing-header">
+          <span class="filing-company">${f.wl_name||f.corp_name}</span>
+          <span class="filing-symbol">${f.stock_code||""}</span>
+          ${badge(f.pblntf_ty)}
+        </div>
+        <div class="filing-title">${f.report_nm||""}</div>
+      </div>
+    </div>`;
+  }).join("");
+  html += `<div class="filing-count">${filtered.length} filing${filtered.length!==1?"s":""}</div>`;
+  list.innerHTML = html;
+
+  // Click handlers
+  list.querySelectorAll(".filing-item").forEach(el => {
+    el.addEventListener("click", () => {
+      selected = filtered[parseInt(el.dataset.idx)];
+      render();
+    });
+  });
+
+  // Detail panel
+  renderDetail();
+  renderWatchlist();
+}
+
+function renderDetail() {
+  const p = document.getElementById("detail-panel");
+  if (!selected) {
+    p.innerHTML = `<div class="detail-panel"><div class="empty-detail"><div style="font-size:32px;opacity:.3;margin-bottom:12px">📋</div><div style="font-size:13px;color:var(--t3)">Select a filing to view details</div></div></div>`;
+    return;
+  }
+  const f = selected;
+  p.innerHTML = `<div class="detail-panel" style="animation:fadeUp .25s ease">
+    <div style="display:flex;justify-content:space-between;margin-bottom:20px">
+      <div class="detail-label">Filing Detail</div>
+      <span id="close-detail" style="color:var(--t3);font-size:18px;cursor:pointer">×</span>
+    </div>
+    <div class="detail-company">${f.wl_name||f.corp_name}</div>
+    <div class="detail-symbol">${f.stock_code||""} · ${f.corp_name||""}</div>
+    <div class="detail-title">${f.report_nm||""}</div>
+    <div class="detail-row"><span class="detail-row-label">Type</span><span>${badge(f.pblntf_ty)}</span></div>
+    <div class="detail-row"><span class="detail-row-label">Filed</span><span class="detail-row-value">${fmtDate(f.rcept_dt)}</span></div>
+    <div class="detail-row"><span class="detail-row-label">Receipt No</span><span class="detail-row-value">${f.rcept_no||"—"}</span></div>
+    <div class="detail-row"><span class="detail-row-label">Filer</span><span class="detail-row-value">${f.flr_nm||"—"}</span></div>
+    <div class="detail-row"><span class="detail-row-label">Corp Code</span><span class="detail-row-value">${f.corp_code||"—"}</span></div>
+    <a class="btn-dart" href="https://dart.fss.or.kr/dsaf001/main.do?rcpNo=${f.rcept_no}" target="_blank">View on DART →</a>
+    <a class="btn-dart-secondary" href="https://englishdart.fss.or.kr/dsaf001/main.do?rcpNo=${f.rcept_no}" target="_blank">Try English DART</a>
+  </div>`;
+  document.getElementById("close-detail").addEventListener("click", () => { selected=null; render(); });
+}
+
+function renderWatchlist() {
+  const c = document.getElementById("wl-container");
+  c.innerHTML = WATCHLIST.map(w => {
+    const sym6 = w.sym.padStart(6,"0");
+    const count = filings.filter(f => (f.stock_code||"").trim() === sym6).length;
+    return `<div class="wl-item" data-name="${w.name}">
+      <span style="color:var(--t2)">${w.name}</span>
+      <div class="wl-meta">
+        <span class="wl-code">${w.sym}</span>
+        ${count > 0 ? `<span class="wl-count">${count}</span>` : ""}
+      </div>
+    </div>`;
+  }).join("");
+  c.querySelectorAll(".wl-item").forEach(el => {
+    el.addEventListener("click", () => {
+      document.getElementById("search").value = el.dataset.name;
+      search = el.dataset.name;
+      render();
+    });
+  });
+}
+
+// ══════════════════ INIT ══════════════════
+document.addEventListener("DOMContentLoaded", () => {
+  const loginEl = document.getElementById("login");
+  const appEl = document.getElementById("app");
+
+  if (checkAuth()) { loginEl.classList.add("hidden"); appEl.classList.add("visible"); init(); return; }
+
+  const pw = document.getElementById("login-pw");
+  const btn = document.getElementById("login-btn");
+  const err = document.getElementById("login-error");
+  function tryLogin() {
+    if (doAuth(pw.value)) { loginEl.classList.add("hidden"); appEl.classList.add("visible"); init(); }
+    else { err.textContent = "Invalid password."; pw.value = ""; pw.focus(); }
+  }
+  btn.addEventListener("click", tryLogin);
+  pw.addEventListener("keydown", e => { if(e.key==="Enter") tryLogin(); });
+});
+
+function init() {
+  document.getElementById("search").addEventListener("input", e => { search=e.target.value; render(); });
+  document.getElementById("type-filter").addEventListener("change", e => { typeFilter=e.target.value; render(); });
+  document.getElementById("date-range").addEventListener("change", e => { dateRange=parseInt(e.target.value); fetchFilings(); });
+  document.getElementById("refresh-btn").addEventListener("click", fetchFilings);
+  document.getElementById("toggle-log").addEventListener("click", () => {
+    document.getElementById("log-panel").classList.toggle("show");
+  });
+  document.getElementById("logout-btn").addEventListener("click", () => { sessionStorage.removeItem(SK); location.reload(); });
+  renderDetail();
+  renderWatchlist();
+  fetchFilings();
+}
+</script>
+</body>
+</html>
