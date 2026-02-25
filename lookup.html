@@ -1,0 +1,191 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>DART Corp Code Lookup</title>
+<style>
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body { font-family: 'Courier New', monospace; background: #0a0a0a; color: #e0e0e0; padding: 30px; line-height: 1.6; max-width: 1000px; margin: 0 auto; }
+h1 { color: #D4AF5A; margin-bottom: 6px; }
+.sub { color: #777; font-size: 13px; margin-bottom: 24px; }
+.section { background: #141414; border: 1px solid #2a2a2a; border-radius: 8px; padding: 20px; margin-bottom: 20px; }
+h2 { color: #D4AF5A; font-size: 15px; margin-bottom: 10px; }
+p { color: #999; font-size: 13px; margin-bottom: 10px; }
+button { padding: 10px 20px; font-size: 14px; cursor: pointer; background: #D4AF5A; color: #000; border: none; border-radius: 6px; font-weight: bold; font-family: inherit; margin-right: 8px; }
+button:hover { background: #e8c872; }
+button:disabled { background: #444; color: #777; cursor: wait; }
+table { border-collapse: collapse; width: 100%; margin-top: 12px; font-size: 12px; }
+th, td { border: 1px solid #2a2a2a; padding: 6px 10px; text-align: left; }
+th { background: #1a1a1a; color: #D4AF5A; }
+.ok { color: #4ade80; }
+.err { color: #ff6b6b; }
+#status { margin: 10px 0; padding: 10px; border-radius: 6px; font-size: 13px; display: none; }
+.s-info { background: #111; border: 1px solid #333; color: #aaa; }
+.s-ok { background: #0d1a0d; border: 1px solid #1a4a1a; color: #4ade80; }
+.s-err { background: #1a0d0d; border: 1px solid #4a1a1a; color: #ff6b6b; }
+textarea { width: 100%; height: 280px; background: #0d0d0d; color: #4ade80; border: 1px solid #333; border-radius: 6px; padding: 12px; font-family: inherit; font-size: 12px; resize: vertical; margin-top: 10px; }
+.help { background: #1a1510; border: 1px solid #3a2d10; border-radius: 6px; padding: 14px; margin-bottom: 20px; color: #fcd34d; font-size: 12px; }
+</style>
+</head>
+<body>
+
+<h1>DART Corp Code Lookup</h1>
+<div class="sub">Find 8-digit corp_codes for your watchlist. These are needed by the DART API.</div>
+
+<div class="help">
+  The DART API uses an 8-digit <strong>corp_code</strong> (고유번호) per company, NOT the 6-digit stock code.<br>
+  Example: Samsung = stock code 005930, corp_code <strong>00126380</strong>.<br>
+  This tool downloads the official mapping from DART and extracts your companies.
+</div>
+
+<div class="section">
+  <h2>Step 1: Test Connection</h2>
+  <button onclick="testPing()">Test Proxy</button>
+  <button onclick="testApi()">Test API Key (Samsung)</button>
+  <div id="test-result" style="margin-top:8px;font-size:12px;color:#888"></div>
+</div>
+
+<div class="section">
+  <h2>Step 2: Lookup All Corp Codes</h2>
+  <p>Downloads ~25MB mapping file from DART, searches for your 30 companies. If it times out, use "Batch" mode (does 5 at a time — the file gets cached after the first batch).</p>
+  <button onclick="lookupAll()">Lookup All 30</button>
+  <button onclick="batchLookup()">Batch (5 at a time)</button>
+  <div id="status" class="s-info"></div>
+  <table id="tbl" style="display:none">
+    <thead><tr><th>#</th><th>Name</th><th>Stock Code</th><th>Corp Code</th><th>DART Name</th></tr></thead>
+    <tbody id="tbody"></tbody>
+  </table>
+</div>
+
+<div class="section">
+  <h2>Step 3: Copy WATCHLIST for Dashboard</h2>
+  <button onclick="copyIt()" id="btn-copy" disabled>Copy to Clipboard</button>
+  <textarea id="output" readonly style="display:none"></textarea>
+</div>
+
+<script>
+const PROXY = window.location.origin;
+const WL = [
+  {n:"KL-Net",s:"039420"},{n:"Kukbo Design",s:"066620"},{n:"WinsTechnet",s:"136540"},
+  {n:"Dong A E&P",s:"088130"},{n:"Samyung Trading",s:"002810"},{n:"SamyangTongsang",s:"002170"},
+  {n:"esang Networks",s:"080010"},{n:"Muhak",s:"033920"},{n:"Tovis",s:"051360"},
+  {n:"Plantynet",s:"075130"},{n:"Korea Alcohol Industrial",s:"017890"},{n:"Inbody",s:"041830"},
+  {n:"Total Soft Bank",s:"045340"},{n:"MCNEX",s:"097520"},{n:"Nice Info & Telecom",s:"036800"},
+  {n:"Boditech Med",s:"206640"},{n:"Komelon",s:"049430"},{n:"Golfzon",s:"215000"},
+  {n:"INFINITT Healthcare",s:"071200"},{n:"Flitto",s:"300080"},{n:"Eusu",s:"000700"},
+  {n:"i-components",s:"059100"},{n:"Makus",s:"093520"},{n:"BBC Co",s:"318410"},
+  {n:"T&L",s:"340570"},{n:"Infovine",s:"115310"},{n:"Gaeasoft",s:"051160"},
+  {n:"Dreamus",s:"060570"},{n:"Bit Computer",s:"032850"},{n:"Dongyang E&P",s:"079960"},
+];
+let allResults = {};
+
+function stat(msg, cls) {
+  const el = document.getElementById("status");
+  el.style.display = "block"; el.className = "s-" + cls; el.textContent = msg;
+}
+
+async function pf(params) {
+  const qs = new URLSearchParams(params).toString();
+  const r = await fetch(`${PROXY}/.netlify/functions/dart-proxy?${qs}`);
+  const text = await r.text();
+  if (!r.ok) throw new Error(`HTTP ${r.status}: ${text.slice(0,200)}`);
+  return JSON.parse(text);
+}
+
+async function testPing() {
+  const el = document.getElementById("test-result");
+  try { const d = await pf({action:"ping"}); el.innerHTML = `<span class="ok">✓ Proxy OK (${d.ts})</span>`; }
+  catch (e) { el.innerHTML = `<span class="err">✗ ${e.message}</span>`; }
+}
+
+async function testApi() {
+  const el = document.getElementById("test-result");
+  el.textContent = "Testing...";
+  try {
+    const d = await pf({action:"raw",path:"company.json",corp_code:"00126380"});
+    const r = d.dart_response;
+    if (r && r.status === "000") el.innerHTML = `<span class="ok">✓ API works! Samsung → ${r.corp_name} (${r.stock_code})</span>`;
+    else if (r && r._err) el.innerHTML = `<span class="err">✗ Non-JSON: ${r._raw}</span>`;
+    else el.innerHTML = `<span class="err">✗ DART: ${r?.status} ${r?.message || JSON.stringify(r).slice(0,100)}</span>`;
+  } catch (e) { el.innerHTML = `<span class="err">✗ ${e.message}</span>`; }
+}
+
+async function lookupAll() {
+  stat("Downloading corp code file from DART (~25MB)... please wait", "info");
+  try {
+    const codes = WL.map(w => w.s).join(",");
+    const d = await pf({action:"lookup", stock_codes: codes});
+    if (d.error) throw new Error(d.error);
+    allResults = d.results || {};
+    stat(`Done! Map has ${d.map_total} companies. Found ${d.found}/${d.searched} of your watchlist.`, "ok");
+    showTable();
+  } catch (e) {
+    stat("Error: " + e.message + (e.message.includes("imeout") ? " — Try the Batch button instead." : ""), "err");
+  }
+}
+
+async function batchLookup() {
+  allResults = {};
+  const batchSize = 5;
+  for (let i = 0; i < WL.length; i += batchSize) {
+    const batch = WL.slice(i, i + batchSize);
+    const batchNum = Math.floor(i / batchSize) + 1;
+    const totalBatches = Math.ceil(WL.length / batchSize);
+    stat(`Batch ${batchNum}/${totalBatches}: ${batch.map(w=>w.n).join(", ")}...`, "info");
+    try {
+      const codes = batch.map(w => w.s).join(",");
+      const d = await pf({action:"lookup", stock_codes: codes});
+      if (d.results) Object.assign(allResults, d.results);
+    } catch (e) {
+      stat(`Batch ${batchNum} failed: ${e.message}. Continuing...`, "err");
+    }
+    if (i + batchSize < WL.length) await new Promise(r => setTimeout(r, 500));
+  }
+  stat(`Done! Found ${Object.keys(allResults).length}/${WL.length} companies.`, "ok");
+  showTable();
+}
+
+function showTable() {
+  document.getElementById("tbl").style.display = "table";
+  const tbody = document.getElementById("tbody");
+  tbody.innerHTML = "";
+  WL.forEach((w, i) => {
+    const sc = w.s.padStart(6, "0");
+    const r = allResults[sc];
+    tbody.innerHTML += `<tr>
+      <td>${i+1}</td><td>${w.n}</td><td>${sc}</td>
+      <td class="${r ? 'ok' : 'err'}">${r ? r.corp_code : '—'}</td>
+      <td>${r ? r.corp_name : '—'}</td>
+    </tr>`;
+  });
+  genConfig();
+}
+
+function genConfig() {
+  const ta = document.getElementById("output");
+  ta.style.display = "block";
+  document.getElementById("btn-copy").disabled = false;
+  let s = "const WATCHLIST = [\n";
+  for (const w of WL) {
+    const sc = w.s.padStart(6, "0");
+    const r = allResults[sc];
+    const c = r ? r.corp_code : "";
+    const pad = " ".repeat(Math.max(1, 30 - w.n.length));
+    s += `  { name: "${w.n}",${pad}sym: "${w.s}", corp: "${c}" },`;
+    if (r) s += ` // ${r.corp_name}`;
+    else s += ` // ⚠ NOT FOUND`;
+    s += "\n";
+  }
+  s += "];";
+  ta.value = s;
+}
+
+function copyIt() {
+  const ta = document.getElementById("output");
+  ta.select(); document.execCommand("copy");
+  document.getElementById("btn-copy").textContent = "✓ Copied!";
+  setTimeout(() => document.getElementById("btn-copy").textContent = "Copy to Clipboard", 2000);
+}
+</script>
+</body>
+</html>
