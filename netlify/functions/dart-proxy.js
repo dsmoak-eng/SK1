@@ -1,225 +1,128 @@
 const https = require("https");
 const http = require("http");
-const { URL } = require("url");
-const zlib = require("zlib");
 
 const API_KEY = "9775291c3b36cd68194e1d33e637f3783af7fcb0";
 
-let cachedMap = null;
-let cacheTime = 0;
-const CACHE_TTL = 24 * 60 * 60 * 1000;
-
-// ─── HTTP helper with proper redirect handling ────────────────────
 function httpGet(urlStr, timeout = 9000) {
   return new Promise((resolve, reject) => {
+    const timer = setTimeout(() => reject(new Error("Timeout")), timeout);
     const doReq = (u, redirects = 0) => {
-      if (redirects > 5) return reject(new Error("Too many redirects from: " + u));
-
+      if (redirects > 5) { clearTimeout(timer); return reject(new Error("Too many redirects")); }
       let parsed;
-      try { parsed = new URL(u); } catch (e) { return reject(new Error("Invalid URL: " + u)); }
-
+      try { parsed = new URL(u); } catch(e) { clearTimeout(timer); return reject(e); }
       const lib = parsed.protocol === "https:" ? https : http;
-      const opts = {
-        hostname: parsed.hostname,
-        port: parsed.port,
-        path: parsed.pathname + parsed.search,
-        timeout,
-        headers: { "User-Agent": "DartProxy/1.0" },
-      };
-
-      console.log(`[req] ${parsed.protocol}//${parsed.hostname}${parsed.pathname}${parsed.search ? "?" + parsed.search.slice(1, 40) + "..." : ""} (redirect #${redirects})`);
-
-      const req = lib.get(opts, (res) => {
-        console.log(`[res] ${res.statusCode} ${res.headers.location ? "→ " + res.headers.location : ""}`);
-
+      lib.get(u, { timeout: 8000 }, (res) => {
         if ([301, 302, 303, 307, 308].includes(res.statusCode) && res.headers.location) {
-          res.resume(); // drain the response
-          // Resolve relative redirects against the current URL
+          res.resume();
           const next = new URL(res.headers.location, u).toString();
           return doReq(next, redirects + 1);
         }
-
-        const chunks = [];
-        res.on("data", (c) => chunks.push(c));
-        res.on("end", () => resolve({
-          code: res.statusCode,
-          headers: res.headers,
-          buf: Buffer.concat(chunks),
-        }));
-      });
-
-      req.on("error", (e) => reject(new Error("Network error: " + e.message)));
-      req.on("timeout", () => { req.destroy(); reject(new Error("Timeout after " + timeout + "ms")); });
+        let data = "";
+        res.on("data", (chunk) => { data += chunk; });
+        res.on("end", () => { clearTimeout(timer); resolve(data); });
+        res.on("error", (e) => { clearTimeout(timer); reject(e); });
+      }).on("error", (e) => { clearTimeout(timer); reject(e); });
     };
     doReq(urlStr);
   });
 }
 
-// ─── DART JSON call ───────────────────────────────────────────────
-async function dartJson(path, params) {
-  const qs = new URLSearchParams({ crtfc_key: API_KEY, ...params }).toString();
-  const url = `https://opendart.fss.or.kr/api/${path}?${qs}`;
-  console.log("[dart]", path, JSON.stringify(params));
-  const r = await httpGet(url);
-  const text = r.buf.toString("utf-8");
-  try { return JSON.parse(text); }
-  catch { return { _raw: text.slice(0, 500), _err: true, _code: r.code }; }
+async function fetchForCorp(corpCode, bgnDe, endDe) {
+  const qs = new URLSearchParams({
+    crtfc_key: API_KEY,
+    corp_code: corpCode,
+    bgn_de: bgnDe,
+    end_de: endDe,
+    page_no: "1",
+    page_count: "100",
+  }).toString();
+  const url = `https://opendart.fss.or.kr/api/list.json?${qs}`;
+  const raw = await httpGet(url);
+  return JSON.parse(raw);
 }
 
-// ─── Corp code map ────────────────────────────────────────────────
-async function getCorpMap() {
-  if (cachedMap && (Date.now() - cacheTime) < CACHE_TTL) {
-    console.log("[cache] Using cached map:", cachedMap.size);
-    return cachedMap;
-  }
-
-  console.log("[corpcode] Downloading ZIP...");
-  const r = await httpGet(
-    `https://opendart.fss.or.kr/api/corpCode.xml?crtfc_key=${API_KEY}`,
-    8500
-  );
-  const buf = r.buf;
-  console.log("[corpcode] Response:", buf.length, "bytes, HTTP", r.code);
-
-  if (buf.length < 100 || buf[0] !== 0x50 || buf[1] !== 0x4B) {
-    const text = buf.toString("utf-8", 0, Math.min(300, buf.length));
-    throw new Error("Not a ZIP (HTTP " + r.code + "): " + text);
-  }
-
-  const xml = extractZip(buf);
-  console.log("[corpcode] XML:", xml.length, "chars");
-
-  const map = new Map();
-  const re = /<corp_code>([^<]+)<\/corp_code>[\s\S]*?<corp_name>([^<]*)<\/corp_name>[\s\S]*?<stock_code>([^<]*)<\/stock_code>/g;
-  let m;
-  while ((m = re.exec(xml)) !== null) {
-    const sc = (m[3] || "").trim();
-    if (sc) map.set(sc.padStart(6, "0"), { corp_code: m[1].trim(), corp_name: m[2].trim() });
-  }
-  console.log("[corpcode] Map size:", map.size);
-  cachedMap = map;
-  cacheTime = Date.now();
-  return map;
-}
-
-function extractZip(buf) {
-  if (buf.readUInt32LE(0) !== 0x04034b50) throw new Error("Bad ZIP signature");
-  const method = buf.readUInt16LE(8);
-  const cSize = buf.readUInt32LE(18);
-  const fnLen = buf.readUInt16LE(26);
-  const exLen = buf.readUInt16LE(28);
-  const off = 30 + fnLen + exLen;
-  const data = buf.slice(off, off + cSize);
-  if (method === 0) return data.toString("utf-8");
-  if (method === 8) return zlib.inflateRawSync(data).toString("utf-8");
-  throw new Error("Unsupported ZIP method: " + method);
-}
-
-// ─── HANDLER ──────────────────────────────────────────────────────
 exports.handler = async (event) => {
   const H = {
     "Access-Control-Allow-Origin": "*",
     "Access-Control-Allow-Headers": "Content-Type",
     "Content-Type": "application/json",
   };
-  if (event.httpMethod === "OPTIONS") return { statusCode: 200, headers: H, body: "" };
 
-  const p = event.queryStringParameters || {};
+  if (event.httpMethod === "OPTIONS") {
+    return { statusCode: 200, headers: H, body: "" };
+  }
 
   try {
+    const p = event.queryStringParameters || {};
+
     if (p.action === "ping") {
-      return ok(H, { status: "ok", ts: new Date().toISOString() });
-    }
-
-    // Debug: see exactly what DART returns for any endpoint
-    if (p.action === "raw") {
-      const path = p.path || "company.json";
-      const params = { ...p };
-      delete params.action; delete params.path;
-      const result = await dartJson(path, params);
-      return ok(H, { dart_response: result });
-    }
-
-    // Lookup: resolve stock_codes → corp_codes via CORPCODE.xml
-    if (p.action === "lookup") {
-      const codes = (p.stock_codes || "").split(",").filter(Boolean);
-      if (!codes.length) return err(H, 400, "Need stock_codes");
-      const map = await getCorpMap();
-      const results = {};
-      for (const raw of codes) {
-        const sc = raw.trim().padStart(6, "0");
-        const entry = map.get(sc);
-        if (entry) results[sc] = entry;
+      try {
+        const data = await fetchForCorp("00126380", "20250101", "20250201");
+        return {
+          statusCode: 200, headers: H,
+          body: JSON.stringify({
+            status: "ok",
+            dart_status: data.status,
+            sample_count: (data.list || []).length,
+          }),
+        };
+      } catch (e) {
+        return { statusCode: 200, headers: H, body: JSON.stringify({ status: "ok", dart_error: e.message }) };
       }
-      return ok(H, { status: "ok", map_total: map.size, searched: codes.length, found: Object.keys(results).length, results });
     }
 
-    // Find corp_code for a stock_code by scanning recent filings
-    if (p.action === "find_corp") {
-      const stockCode = (p.stock_code || "").trim().padStart(6, "0");
-      if (!stockCode || stockCode === "000000") return err(H, 400, "Need stock_code");
+    if (p.action === "batch") {
+      const codes = (p.corp_codes || "").split(",").filter(Boolean);
+      const bgnDe = p.bgn_de;
+      const endDe = p.end_de;
 
-      // Search recent 3 months of all filings (max allowed without corp_code)
-      const now = new Date();
-      const endDe = now.toISOString().slice(0, 10).replace(/-/g, "");
-      const start = new Date(now);
-      start.setMonth(start.getMonth() - 3);
-      const bgnDe = start.toISOString().slice(0, 10).replace(/-/g, "");
+      if (!bgnDe || !endDe || codes.length === 0) {
+        return { statusCode: 400, headers: H, body: JSON.stringify({ error: "Need corp_codes, bgn_de, end_de" }) };
+      }
 
-      console.log(`[find_corp] Searching for stock_code ${stockCode} in ${bgnDe}-${endDe}`);
+      const allFilings = [];
+      const errors = [];
+      const batchSize = 5;
 
-      // Scan up to 5 pages (500 filings)
-      for (let page = 1; page <= 5; page++) {
-        const r = await dartJson("list.json", {
-          bgn_de: bgnDe, end_de: endDe, page_no: String(page), page_count: "100",
-        });
-
-        if (r._err) return ok(H, { status: "parse_error", raw: r._raw });
-        if (r.status !== "000" || !r.list) {
-          console.log(`[find_corp] DART status ${r.status} on page ${page}`);
-          break;
-        }
-
-        for (const f of r.list) {
-          if ((f.stock_code || "").trim() === stockCode) {
-            console.log(`[find_corp] Found! ${stockCode} → ${f.corp_code} (${f.corp_name})`);
-            return ok(H, {
-              status: "ok",
-              stock_code: stockCode,
-              corp_code: f.corp_code,
-              corp_name: f.corp_name,
-              found_in: f.report_nm,
-            });
+      for (let i = 0; i < codes.length; i += batchSize) {
+        const batch = codes.slice(i, i + batchSize);
+        const results = await Promise.allSettled(
+          batch.map(cc => fetchForCorp(cc, bgnDe, endDe))
+        );
+        results.forEach((r, idx) => {
+          const cc = batch[idx];
+          if (r.status === "fulfilled") {
+            const d = r.value;
+            if (d.status === "000" && d.list) {
+              allFilings.push(...d.list);
+            } else if (d.status !== "013") {
+              errors.push(`${cc}: ${d.message || d.status}`);
+            }
+          } else {
+            errors.push(`${cc}: ${r.reason.message}`);
           }
-        }
-        console.log(`[find_corp] Page ${page}/${r.total_page}: no match yet`);
-
-        // Don't scan more pages than exist
-        if (page >= (r.total_page || 1)) break;
+        });
       }
 
-      return ok(H, { status: "not_found", stock_code: stockCode, message: "Not found in recent 3 months of filings (company may not have filed recently)" });
+      allFilings.sort((a, b) => (b.rcept_dt || "").localeCompare(a.rcept_dt || ""));
+
+      return {
+        statusCode: 200, headers: H,
+        body: JSON.stringify({
+          status: "ok",
+          total: allFilings.length,
+          companies_queried: codes.length,
+          errors: errors.length > 0 ? errors : undefined,
+          filings: allFilings,
+        }),
+      };
     }
 
-    // Filings: fetch for one company
-    if (p.action === "filings") {
-      if (!p.corp_code || !p.bgn_de || !p.end_de) return err(H, 400, "Need corp_code, bgn_de, end_de");
-      const r = await dartJson("list.json", {
-        corp_code: p.corp_code, bgn_de: p.bgn_de, end_de: p.end_de, page_count: "100",
-      });
-      if (r._err) return ok(H, { status: "parse_error", raw: r._raw, http_code: r._code, filings: [] });
-      if (r.status === "000") return ok(H, { status: "ok", total: r.list.length, filings: r.list });
-      if (r.status === "013") return ok(H, { status: "ok", total: 0, filings: [] });
-      return ok(H, { status: "dart_error", dart_status: r.status, dart_message: r.message, filings: [] });
-    }
+    return { statusCode: 400, headers: H, body: JSON.stringify({ error: "Use action=ping or action=batch" }) };
 
-    return err(H, 400, "Use action=ping, lookup, filings, or raw");
-
-  } catch (e) {
-    console.error("HANDLER ERROR:", e);
-    return { statusCode: 500, headers: H, body: JSON.stringify({ error: e.message, stack: e.stack }) };
+  } catch (err) {
+    console.error("Proxy error:", err);
+    return { statusCode: 500, headers: H, body: JSON.stringify({ error: err.message }) };
   }
 };
 
-function ok(H, d) { return { statusCode: 200, headers: H, body: JSON.stringify(d) }; }
-function err(H, c, m) { return { statusCode: c, headers: H, body: JSON.stringify({ error: m }) }; }
