@@ -1,0 +1,5 @@
+[functions]
+  directory = "netlify/functions"
+
+[functions."dart-proxy"]
+  timeout = 26
