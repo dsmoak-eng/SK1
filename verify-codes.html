@@ -1,0 +1,96 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<title>Verify DART Corp Codes</title>
+<style>
+body { font-family: monospace; background: #111; color: #eee; padding: 20px; }
+table { border-collapse: collapse; width: 100%; }
+th, td { border: 1px solid #333; padding: 8px; text-align: left; }
+th { background: #222; }
+.ok { color: #4ade80; }
+.err { color: #ff6b6b; }
+.pending { color: #888; }
+button { padding: 10px 20px; font-size: 16px; cursor: pointer; background: #D4AF5A; color: #000; border: none; border-radius: 6px; margin-bottom: 20px; }
+</style>
+</head>
+<body>
+<h1>DART Corp Code Verifier</h1>
+<p>This page tests each watchlist company's corp_code against the DART API via your proxy.<br>
+Deploy this file alongside index.html, then visit it to check which corp_codes are valid.</p>
+<button onclick="verify()">Run Verification</button>
+<table>
+<thead><tr><th>Company</th><th>Stock Code</th><th>Corp Code</th><th>Status</th><th>DART Name</th></tr></thead>
+<tbody id="results"></tbody>
+</table>
+<script>
+const PROXY = window.location.origin;
+const COMPANIES = [
+  { name: "KL-Net", sym: "039420", corp: "00425898" },
+  { name: "Kukbo Design", sym: "066620", corp: "00547498" },
+  { name: "WinsTechnet", sym: "136540", corp: "00862357" },
+  { name: "Dong A E&P", sym: "088130", corp: "00617324" },
+  { name: "Samyung Trading", sym: "002810", corp: "00117761" },
+  { name: "SamyangTongsang", sym: "002170", corp: "00117104" },
+  { name: "esang Networks", sym: "080010", corp: "00588092" },
+  { name: "Muhak", sym: "033920", corp: "00382614" },
+  { name: "Tovis", sym: "051360", corp: "00472930" },
+  { name: "Plantynet", sym: "075130", corp: "00565990" },
+  { name: "Korea Alcohol Industrial", sym: "017890", corp: "00260098" },
+  { name: "Inbody", sym: "041830", corp: "00447413" },
+  { name: "Total Soft Bank", sym: "045340", corp: "00454988" },
+  { name: "MCNEX", sym: "097520", corp: "00669033" },
+  { name: "Nice Info & Telecom", sym: "036800", corp: "00401419" },
+  { name: "Boditech Med", sym: "206640", corp: "01025080" },
+  { name: "Komelon", sym: "049430", corp: "00466896" },
+  { name: "Golfzon", sym: "215000", corp: "00566509" },
+  { name: "INFINITT Healthcare", sym: "071200", corp: "00548174" },
+  { name: "Flitto", sym: "300080", corp: "01122498" },
+  { name: "Eusu", sym: "000700", corp: "00115850" },
+  { name: "i-components", sym: "059100", corp: "00510576" },
+  { name: "Makus", sym: "093520", corp: "00644648" },
+  { name: "BBC Co", sym: "318410", corp: "01196978" },
+  { name: "T&L", sym: "340570", corp: "01258553" },
+  { name: "Infovine", sym: "115310", corp: "00753432" },
+  { name: "Gaeasoft", sym: "051160", corp: "00471907" },
+  { name: "Dreamus", sym: "060570", corp: "00517195" },
+  { name: "Bit Computer", sym: "032850", corp: "00369414" },
+  { name: "Dongyang E&P", sym: "079960", corp: "00585777" },
+];
+
+const tbody = document.getElementById("results");
+COMPANIES.forEach((c, i) => {
+  tbody.innerHTML += `<tr id="row-${i}"><td>${c.name}</td><td>${c.sym}</td><td>${c.corp}</td><td class="pending">pending</td><td>—</td></tr>`;
+});
+
+async function verify() {
+  for (let i = 0; i < COMPANIES.length; i++) {
+    const c = COMPANIES[i];
+    const row = document.getElementById(`row-${i}`);
+    const cells = row.querySelectorAll("td");
+    cells[3].textContent = "checking...";
+    cells[3].className = "pending";
+    try {
+      const r = await fetch(`${PROXY}/.netlify/functions/dart-proxy?action=company&corp_code=${c.corp}`);
+      const data = await r.json();
+      if (data.status === "000") {
+        const dartStock = (data.stock_code || "").trim();
+        const match = dartStock === c.sym;
+        cells[3].textContent = match ? "✓ OK" : `✗ WRONG (stock: ${dartStock})`;
+        cells[3].className = match ? "ok" : "err";
+        cells[4].textContent = data.corp_name || "—";
+      } else {
+        cells[3].textContent = `✗ Error: ${data.status} ${data.message || ""}`;
+        cells[3].className = "err";
+      }
+    } catch (e) {
+      cells[3].textContent = `✗ ${e.message}`;
+      cells[3].className = "err";
+    }
+    // Small delay to avoid rate limiting
+    await new Promise(r => setTimeout(r, 200));
+  }
+}
+</script>
+</body>
+</html>
